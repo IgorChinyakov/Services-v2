@@ -1,16 +1,23 @@
+using CSharpFunctionalExtensions;
+using DirectoryService.Domain.Entities.Ids;
 using DirectoryService.Domain.ValueObjects.Location;
 
 namespace DirectoryService.Domain.Entities;
 
-public class Location
+public class Location : Entity<LocationId>
 {
-    private readonly List<Department> _departments = [];
+    // ef core
+    private Location()
+    {
+    }
 
-    public Name Name { get; private set; }
+    private readonly List<DepartmentLocation> _departmentLocations = [];
 
-    public Address Address { get; private set; }
+    public Name Name { get; private set; } = null!;
 
-    public LocationTimeZone TimeZone { get; private set; }
+    public Address Address { get; private set; } = null!;
+
+    public LocationTimeZone TimeZone { get; private set; } = null!;
 
     public bool IsActive { get; private set; }
 
@@ -18,7 +25,7 @@ public class Location
 
     public DateTime UpdatedAt { get; private set; }
 
-    public IReadOnlyList<Department> Departments => _departments;
+    public IReadOnlyList<DepartmentLocation> DepartmentLocations => _departmentLocations;
 
     public Location(Name name, Address address, LocationTimeZone timeZone)
     {

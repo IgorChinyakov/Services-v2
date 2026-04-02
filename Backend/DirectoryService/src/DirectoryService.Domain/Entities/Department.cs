@@ -8,13 +8,18 @@ namespace DirectoryService.Domain.Entities;
 
 public class Department : Entity<DepartmentId>
 {
+    // ef core
+    private Department()
+    {
+    }
+
     private readonly List<Department> _children = [];
-    private readonly List<Position> _positions = [];
-    private readonly List<Location> _locations = [];
+    private readonly List<DepartmentPosition> _departmentPositions = [];
+    private readonly List<DepartmentLocation> _departmentLocations = [];
 
-    public Name Name { get; private set; }
+    public Name Name { get; private set; } = null!;
 
-    public Identifier Identifier { get; private set; }
+    public Identifier Identifier { get; private set; } = null!;
 
     public Department? Parent { get; private set; }
 
@@ -28,9 +33,9 @@ public class Department : Entity<DepartmentId>
 
     public IReadOnlyList<Department> Children => _children;
 
-    public IReadOnlyList<Position> Positions => _positions;
+    public IReadOnlyList<DepartmentPosition> DepartmentPositions => _departmentPositions;
 
-    public IReadOnlyList<Location> Locations => _locations;
+    public IReadOnlyList<DepartmentLocation> DepartmentLocations => _departmentLocations;
 
     public Department(Name name, Identifier identifier)
     {

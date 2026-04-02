@@ -6,11 +6,11 @@ public class DepartmentPosition
 {
     public Guid Id { get; private set; }
 
-    public Department Department { get; private set; }
+    public Department Department { get; private set; } = null!;
 
-    public DepartmentId DepartmentId { get; private set; }
+    public DepartmentId DepartmentId { get; private set; } = null!;
 
-    public Position Location { get; private set; }
+    public Position Position { get; private set; } = null!;
 
-    public PositionId LocationId { get; private set; }
+    public PositionId PositionId { get; private set; } = null!;
 }

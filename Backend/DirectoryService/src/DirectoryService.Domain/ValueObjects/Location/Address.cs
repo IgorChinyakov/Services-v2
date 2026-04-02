@@ -15,7 +15,6 @@ public class Address : ValueObject
 
     public const int MIN_PART_LENGTH = 2;
     public const int MAX_PART_LENGTH = 100;
-    public const int MAX_POSTAL_CODE_LENGTH = 20;
 
     private Address(
         string country,
@@ -97,7 +96,7 @@ public class Address : ValueObject
         }
 
         var trimmed = value.Trim();
- 
+
         if (trimmed.Length < MIN_PART_LENGTH || trimmed.Length > MAX_PART_LENGTH)
             messages.Add(new($"{displayName} has invalid length", propertyName));
     }
