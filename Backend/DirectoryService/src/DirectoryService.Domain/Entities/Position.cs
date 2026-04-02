@@ -6,9 +6,14 @@ namespace DirectoryService.Domain.Entities;
 
 public class Position : Entity<PositionId>
 {
-    private readonly List<Department> _departments = [];
+    // ef core
+    private Position()
+    {
+    }
 
-    public Name Name { get; private set; }
+    private readonly List<DepartmentPosition> _departmentPositions = [];
+
+    public Name Name { get; private set; } = null!;
 
     public Description? Description { get; private set; }
 
@@ -18,7 +23,7 @@ public class Position : Entity<PositionId>
 
     public DateTime UpdatedAt { get; private set; }
 
-    public IReadOnlyList<Department> Departments => _departments;
+    public IReadOnlyList<DepartmentPosition> DepartmentPositions => _departmentPositions;
 
     public Position(Name name, Description? description)
     {
