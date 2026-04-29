@@ -18,7 +18,7 @@ public class LocationTimeZone : ValueObject
         if (validationResult.IsFailure)
             return validationResult.Error;
 
-        return new LocationTimeZone(value);
+        return new LocationTimeZone(value.Trim());
     }
 
     public static UnitResult<Error> Validate(string value)
@@ -27,11 +27,28 @@ public class LocationTimeZone : ValueObject
             return Error.Validation("TimeZone is empty", "TimeZone");
 
         var trimmed = value.Trim();
-        if (!TimeZoneInfo.TryConvertWindowsIdToIanaId(trimmed, out string? ianaId))
+
+        if (!trimmed.Contains('/'))
             return Error.Validation("TimeZone has invalid IANA code", "TimeZone");
+
+        try
+        {
+            _ = TimeZoneInfo.FindSystemTimeZoneById(trimmed);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return Error.Validation("TimeZone has invalid IANA code", "TimeZone");
+        }
+        catch (InvalidTimeZoneException)
+        {
+            return Error.Validation("TimeZone has invalid IANA code", "TimeZone");
+        }
 
         return UnitResult.Success<Error>();
     }
 
-    protected override IEnumerable<object> GetEqualityComponents() => throw new NotImplementedException();
+    protected override IEnumerable<object> GetEqualityComponents()
+    {
+        yield return Value;
+    }
 }

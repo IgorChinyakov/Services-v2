@@ -29,11 +29,15 @@ public class Location : Entity<LocationId>
 
     public Location(Name name, Address address, LocationTimeZone timeZone)
     {
+        Id = LocationId.New();
         Name = name;
         Address = address;
         TimeZone = timeZone;
         IsActive = true;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+
+        var utcNow = DateTime.UtcNow;
+
+        CreatedAt = utcNow;
+        UpdatedAt = utcNow;
     }
 }
