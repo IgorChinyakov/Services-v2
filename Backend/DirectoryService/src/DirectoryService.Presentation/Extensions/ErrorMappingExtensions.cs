@@ -1,6 +1,4 @@
 using DirectoryService.Domain.Shared;
-using DirectoryService.Presentation.ApiResponse;
-using Microsoft.AspNetCore.Mvc;
 
 namespace DirectoryService.Presentation.Extensions;
 
@@ -16,16 +14,6 @@ public static class ErrorMappingExtensions
             ErrorType.Authentication => StatusCodes.Status401Unauthorized,
             ErrorType.Authorization => StatusCodes.Status403Forbidden,
             _ => StatusCodes.Status500InternalServerError,
-        };
-    }
-
-    public static IActionResult ToMvcResult(this Error error)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        return new ObjectResult(Envelope.Fail(error))
-        {
-            StatusCode = error.ToStatusCode(),
         };
     }
 }

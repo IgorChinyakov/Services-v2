@@ -1,6 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Locations.Create;
 using DirectoryService.Contracts.Locations.Requests;
+using DirectoryService.Domain.Shared;
 using DirectoryService.Presentation.ApiResponse;
 using DirectoryService.Presentation.Extensions;
 using Microsoft.AspNetCore.Mvc;
@@ -24,11 +25,11 @@ public sealed class LocationsController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType(typeof(Envelope<Guid>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> CreateAsync(
+    [ProducesResponseType<EndpointResult<Guid>>(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<Guid>> CreateAsync(
         [FromBody] CreateLocationRequest request,
         CancellationToken cancellationToken)
     {
@@ -45,9 +46,6 @@ public sealed class LocationsController : ControllerBase
 
         var result = await _createLocationHandler.Handle(command, cancellationToken);
 
-        if (result.IsFailure)
-            return result.Error.ToMvcResult();
-
-        return Ok(Envelope.Ok(result.Value));
+        return result;
     }
 }

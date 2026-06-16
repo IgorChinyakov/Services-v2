@@ -1,6 +1,8 @@
-﻿using DirectoryService.Application.Extensions;
+﻿using CSharpFunctionalExtensions;
+using DirectoryService.Application.Extensions;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Extensions;
+using DirectoryService.Presentation.ApiResponse;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DirectoryService.Presentation.Extensions;
@@ -38,7 +40,7 @@ public static class DependencyInjectionExtensions
                     context.HttpContext.Request.Path.Value,
                     errors);
 
-                return domainError.ToMvcResult();
+                return EndpointResult.ToEndpointResult(UnitResult.Failure(domainError));
             };
         });
 
