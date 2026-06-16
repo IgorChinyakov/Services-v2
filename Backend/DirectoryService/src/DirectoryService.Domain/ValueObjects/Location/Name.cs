@@ -21,7 +21,7 @@ public class Name : ValueObject
         if (validationResult.IsFailure)
             return validationResult.Error;
 
-        return new Name(value);
+        return new Name(value.Trim());
     }
 
     public static UnitResult<Error> Validate(string value)
@@ -31,7 +31,7 @@ public class Name : ValueObject
 
         var trimmed = value.Trim();
         if (trimmed.Length < MIN_LENGTH || trimmed.Length > MAX_LENGTH)
-            Error.Validation("Location name has invalid length", "Location name");
+            return Error.Validation("Location name has invalid length", "Location name");
 
         return UnitResult.Success<Error>();
     }

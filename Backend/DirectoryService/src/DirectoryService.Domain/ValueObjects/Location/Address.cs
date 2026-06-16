@@ -91,13 +91,13 @@ public class Address : ValueObject
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            messages.Add(new($"{displayName} is empty", propertyName));
+            messages.Add(new("field.is.invalid", $"{displayName} is empty", propertyName));
             return;
         }
 
         var trimmed = value.Trim();
 
         if (trimmed.Length < MIN_PART_LENGTH || trimmed.Length > MAX_PART_LENGTH)
-            messages.Add(new($"{displayName} has invalid length", propertyName));
+            messages.Add(new("field.is.invalid", $"{displayName} has invalid length", propertyName));
     }
 }

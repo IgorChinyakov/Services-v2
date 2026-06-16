@@ -18,6 +18,7 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
             .HasConversion(
                 id => id.Value,
                 value => LocationId.Create(value))
+            .ValueGeneratedNever()
             .HasColumnName("id");
 
         builder.OwnsOne(x => x.Name, nameBuilder =>

@@ -41,22 +41,22 @@ public record Error
     public static Error Authorization(string message, string? invalidField = null) =>
         new([new ErrorMessage("authorization", message, invalidField)], ErrorType.Authorization);
 
-    public static Error Validation(params IEnumerable<ErrorMessage> messages) =>
+    public static Error Validation(IEnumerable<ErrorMessage> messages) =>
         new(messages, ErrorType.Validation);
 
-    public static Error NotFound(params IEnumerable<ErrorMessage> messages) =>
+    public static Error NotFound(IEnumerable<ErrorMessage> messages) =>
         new(messages, ErrorType.NotFound);
 
-    public static Error Failure(params IEnumerable<ErrorMessage> messages) =>
+    public static Error Failure(IEnumerable<ErrorMessage> messages) =>
         new(messages, ErrorType.Failure);
 
-    public static Error Conflict(params IEnumerable<ErrorMessage> messages) =>
+    public static Error Conflict(IEnumerable<ErrorMessage> messages) =>
         new(messages, ErrorType.Conflict);
 
-    public static Error Authentication(params IEnumerable<ErrorMessage> messages) =>
+    public static Error Authentication(IEnumerable<ErrorMessage> messages) =>
         new(messages, ErrorType.Authentication);
 
-    public static Error Authorization(params IEnumerable<ErrorMessage> messages) =>
+    public static Error Authorization(IEnumerable<ErrorMessage> messages) =>
         new(messages, ErrorType.Authorization);
 }
 

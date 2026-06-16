@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DirectoryService.Application.Abstractions.Repositories;
+using DirectoryService.Infrastructure.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -14,7 +16,7 @@ public static class DependencyInjectionExtensions
     {
         services.AddDbContextPool<DirectoryServiceDbContext>((sp, options) =>
         {
-            string? connectionString = configuration.GetSection(Constants.DATABASE).Value ??
+            string connectionString = configuration.GetSection(Constants.DATABASE).Value ??
                                        throw new ArgumentNullException(Constants.DATABASE);
 
             var environment = sp.GetRequiredService<IHostEnvironment>();
@@ -30,6 +32,8 @@ public static class DependencyInjectionExtensions
 
             options.UseLoggerFactory(loggerFactory);
         });
+
+        services.AddScoped<ILocationRepository, LocationRepository>();
 
         return services;
     }
