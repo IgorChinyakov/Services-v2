@@ -93,6 +93,58 @@ public sealed class DepartmentRepository : IDepartmentRepository
             cancellationToken);
     }
 
+    public async Task<Result<int, Error>> ReplaceLocationsAsync(
+        DepartmentId departmentId,
+        IReadOnlyCollection<LocationId> locationIds,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(departmentId);
+        ArgumentNullException.ThrowIfNull(locationIds);
+
+        DepartmentLocation[] departmentLocations = [];
+
+        return await _dbOperationExecutor.ExecuteSaveAsync(
+            async ct =>
+            {
+                var distinctLocationIds = locationIds.Distinct().ToArray();
+
+                _logger.LogDebug(
+                    "Replacing department locations. DepartmentId {DepartmentId}. LocationCount {LocationCount}",
+                    departmentId.Value,
+                    distinctLocationIds.Length);
+
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
+
+                await _dbContext.Set<DepartmentLocation>()
+                    .Where(departmentLocation => departmentLocation.DepartmentId == departmentId)
+                    .ExecuteDeleteAsync(ct);
+
+                departmentLocations = distinctLocationIds
+                    .Select(locationId => new DepartmentLocation(departmentId, locationId))
+                    .ToArray();
+
+                await _dbContext.Set<DepartmentLocation>().AddRangeAsync(departmentLocations, ct);
+                await _dbContext.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+
+                _logger.LogInformation(
+                    "Department locations successfully replaced. DepartmentId {DepartmentId}. LocationCount {LocationCount}",
+                    departmentId.Value,
+                    departmentLocations.Length);
+
+                return departmentLocations.Length;
+            },
+            () => Detach(departmentLocations),
+            "department locations",
+            new
+            {
+                DepartmentId = departmentId.Value,
+                LocationIds = locationIds.Select(id => id.Value),
+            },
+            cancellationToken,
+            "Department contains duplicate location links.");
+    }
+
     public async Task<Result<Department, Error>> AddAsync(
         Department department,
         CancellationToken cancellationToken)
@@ -127,6 +179,12 @@ public sealed class DepartmentRepository : IDepartmentRepository
             DetachEntry(departmentLocation);
 
         DetachEntry(department);
+    }
+
+    private void Detach(IEnumerable<DepartmentLocation> departmentLocations)
+    {
+        foreach (var departmentLocation in departmentLocations)
+            DetachEntry(departmentLocation);
     }
 
     private void DetachEntry(object entity)

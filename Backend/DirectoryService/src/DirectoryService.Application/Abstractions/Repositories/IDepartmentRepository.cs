@@ -19,6 +19,11 @@ public interface IDepartmentRepository
         IReadOnlyCollection<LocationId> locationIds,
         CancellationToken cancellationToken);
 
+    Task<Result<int, Error>> ReplaceLocationsAsync(
+        DepartmentId departmentId,
+        IReadOnlyCollection<LocationId> locationIds,
+        CancellationToken cancellationToken);
+
     Task<Result<Department, Error>> AddAsync(
         Department department,
         CancellationToken cancellationToken);
