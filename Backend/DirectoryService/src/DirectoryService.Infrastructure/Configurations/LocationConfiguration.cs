@@ -50,6 +50,16 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
                 .HasColumnName("building")
                 .HasMaxLength(Address.MAX_PART_LENGTH)
                 .IsRequired();
+
+            addressBuilder.HasIndex(x => new
+                {
+                    x.Country,
+                    x.City,
+                    x.Street,
+                    x.Building,
+                })
+                .IsUnique()
+                .HasDatabaseName("ix_locations_address");
         });
 
         builder.OwnsOne(x => x.TimeZone, timeZoneBuilder =>
@@ -78,6 +88,7 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
 
         builder.OwnsOne(x => x.Name)
             .HasIndex(x => x.Value)
+            .IsUnique()
             .HasDatabaseName("ix_locations_name");
     }
 }

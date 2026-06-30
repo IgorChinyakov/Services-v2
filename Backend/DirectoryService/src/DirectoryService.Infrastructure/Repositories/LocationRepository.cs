@@ -2,22 +2,25 @@ using CSharpFunctionalExtensions;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Shared;
+using DirectoryService.Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Npgsql;
 
 namespace DirectoryService.Infrastructure.Repositories;
 
 public sealed class LocationRepository : ILocationRepository
 {
     private readonly DirectoryServiceDbContext _dbContext;
+    private readonly DbOperationExecutor _dbOperationExecutor;
     private readonly ILogger<LocationRepository> _logger;
 
     public LocationRepository(
         DirectoryServiceDbContext dbContext,
+        DbOperationExecutor dbOperationExecutor,
         ILogger<LocationRepository> logger)
     {
         _dbContext = dbContext;
+        _dbOperationExecutor = dbOperationExecutor;
         _logger = logger;
     }
 
@@ -25,93 +28,27 @@ public sealed class LocationRepository : ILocationRepository
     {
         ArgumentNullException.ThrowIfNull(location);
 
-        try
-        {
-            _logger.LogDebug(
-                "Persisting location {LocationId} to database",
-                location.Id.Value);
+        return await _dbOperationExecutor.ExecuteSaveAsync(
+            async ct =>
+            {
+                _logger.LogDebug(
+                    "Persisting location {LocationId} to database",
+                    location.Id.Value);
 
-            await _dbContext.Locations.AddAsync(location, cancellationToken);
-            await _dbContext.SaveChangesAsync(cancellationToken);
+                await _dbContext.Locations.AddAsync(location, ct);
+                await _dbContext.SaveChangesAsync(ct);
 
-            _logger.LogInformation(
-                "Location {LocationId} successfully persisted to database",
-                location.Id.Value);
+                _logger.LogInformation(
+                    "Location {LocationId} successfully persisted to database",
+                    location.Id.Value);
 
-            return location;
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (DbUpdateException exception)
-        {
-            Detach(location);
-
-            var error = MapDbUpdateException(exception);
-            var sqlState = (exception.InnerException as PostgresException)?.SqlState;
-
-            _logger.LogError(
-                exception,
-                "Database update failed while saving location {LocationId}. ErrorType {ErrorType}. SqlState {SqlState}",
-                location.Id.Value,
-                error.Type,
-                sqlState);
-
-            return error;
-        }
-        catch (TimeoutException exception)
-        {
-            Detach(location);
-
-            _logger.LogError(
-                exception,
-                "Database timeout while saving location {LocationId}",
-                location.Id.Value);
-
-            return Error.Failure("The database timed out while saving the location.");
-        }
-        catch (NpgsqlException exception)
-        {
-            Detach(location);
-
-            _logger.LogError(
-                exception,
-                "Database is unavailable while saving location {LocationId}",
-                location.Id.Value);
-
-            return Error.Failure("The database is unavailable. Failed to save the location.");
-        }
-    }
-
-    private static Error MapDbUpdateException(DbUpdateException exception)
-    {
-        if (exception.InnerException is not PostgresException postgresException)
-            return Error.Failure("Failed to save the location to the database.");
-
-        return postgresException.SqlState switch
-        {
-            PostgresErrorCodes.UniqueViolation =>
-                Error.Conflict("A location with the same unique values already exists."),
-
-            PostgresErrorCodes.NotNullViolation =>
-                Error.Validation(
-                    "The location contains an empty value required by the database.",
-                    postgresException.ColumnName),
-
-            PostgresErrorCodes.StringDataRightTruncation =>
-                Error.Validation(
-                    "One of the location fields exceeds the maximum allowed length.",
-                    postgresException.ColumnName),
-
-            PostgresErrorCodes.CheckViolation =>
-                Error.Validation("The location violates a database constraint."),
-
-            PostgresErrorCodes.ForeignKeyViolation =>
-                Error.Conflict("The location references data that does not exist."),
-
-            _ => Error.Failure("Failed to save the location to the database."),
-        };
+                return location;
+            },
+            () => Detach(location),
+            "location",
+            new { LocationId = location.Id.Value },
+            cancellationToken,
+            "Location with the same name or address already exists.");
     }
 
     private void Detach(Location location)

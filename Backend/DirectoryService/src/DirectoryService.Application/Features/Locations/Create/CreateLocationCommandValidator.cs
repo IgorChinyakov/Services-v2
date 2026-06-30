@@ -3,7 +3,7 @@ using DirectoryService.Domain.Shared;
 using DirectoryService.Domain.ValueObjects.Location;
 using FluentValidation;
 
-namespace DirectoryService.Application.Locations.Create;
+namespace DirectoryService.Application.Features.Locations.Create;
 
 public sealed class CreateLocationCommandValidator : AbstractValidator<CreateLocationCommand>
 {
@@ -22,7 +22,7 @@ public sealed class CreateLocationCommandValidator : AbstractValidator<CreateLoc
         RuleFor(x => x.Address)
             .MustBeValueObject(
                 address => address is null
-                    ? Error.Validation("Address is required.", nameof(CreateLocationCommand.Address))
+                    ? GeneralErrors.Validation("Address is required.", nameof(CreateLocationCommand.Address))
                     : Address.Validate(
                         address.Country,
                         address.City,

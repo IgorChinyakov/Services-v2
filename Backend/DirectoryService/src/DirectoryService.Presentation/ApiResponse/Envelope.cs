@@ -27,28 +27,3 @@ public record Envelope
     public static Envelope Fail(Error error) =>
         new(null, error);
 }
-
-public record Envelope<T>
-{
-    public T? Result { get; }
-
-    public Error? Error { get; }
-
-    public bool IsError => Error != null;
-
-    public DateTime TimeGenerated { get; }
-
-    [JsonConstructor]
-    private Envelope(T? result, Error? error)
-    {
-        Result = result;
-        Error = error;
-        TimeGenerated = DateTime.Now;
-    }
-
-    public static Envelope<T> Ok(T? result = default) =>
-        new(result, null);
-
-    public static Envelope<T> Fail(Error error) =>
-        new(default, error);
-}

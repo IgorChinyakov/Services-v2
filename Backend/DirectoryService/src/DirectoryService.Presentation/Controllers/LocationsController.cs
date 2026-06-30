@@ -1,5 +1,5 @@
 using DirectoryService.Application.Abstractions.Handlers;
-using DirectoryService.Application.Locations.Create;
+using DirectoryService.Application.Features.Locations.Create;
 using DirectoryService.Contracts.Locations.Requests;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Presentation.ApiResponse;
@@ -25,7 +25,7 @@ public sealed class LocationsController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType<EndpointResult<Guid>>(StatusCodes.Status201Created)]
+    [ProducesResponseType<EndpointResult<Guid>>(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]

@@ -25,12 +25,26 @@ public class Position : Entity<PositionId>
 
     public IReadOnlyList<DepartmentPosition> DepartmentPositions => _departmentPositions;
 
-    public Position(Name name, Description? description)
+    public Position(
+        Name name,
+        Description? description,
+        IEnumerable<DepartmentId> departmentIds)
     {
+        Id = PositionId.New();
         Name = name;
         Description = description;
         IsActive = true;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+
+        var utcNow = DateTime.UtcNow;
+        CreatedAt = utcNow;
+        UpdatedAt = utcNow;
+
+        foreach (var departmentId in departmentIds.Distinct())
+            AddDepartment(departmentId);
+    }
+
+    public void AddDepartment(DepartmentId departmentId)
+    {
+        _departmentPositions.Add(new DepartmentPosition(departmentId, Id));
     }
 }

@@ -24,12 +24,12 @@ public class LocationTimeZone : ValueObject
     public static UnitResult<Error> Validate(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
-            return Error.Validation("TimeZone is empty", "TimeZone");
+            return GeneralErrors.Validation("TimeZone is empty", "TimeZone");
 
         var trimmed = value.Trim();
 
         if (!trimmed.Contains('/'))
-            return Error.Validation("TimeZone has invalid IANA code", "TimeZone");
+            return GeneralErrors.Validation("TimeZone has invalid IANA code", "TimeZone");
 
         try
         {
@@ -37,11 +37,11 @@ public class LocationTimeZone : ValueObject
         }
         catch (TimeZoneNotFoundException)
         {
-            return Error.Validation("TimeZone has invalid IANA code", "TimeZone");
+            return GeneralErrors.Validation("TimeZone has invalid IANA code", "TimeZone");
         }
         catch (InvalidTimeZoneException)
         {
-            return Error.Validation("TimeZone has invalid IANA code", "TimeZone");
+            return GeneralErrors.Validation("TimeZone has invalid IANA code", "TimeZone");
         }
 
         return UnitResult.Success<Error>();

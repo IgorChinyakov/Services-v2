@@ -26,11 +26,11 @@ public class Description : ValueObject
     public static UnitResult<Error> Validate(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
-            return Error.Validation("Location description is empty", "Location description");
+            return GeneralErrors.Validation("Position description is empty", nameof(Description));
 
         var trimmed = value.Trim();
         if (trimmed.Length > MAX_LENGTH)
-            Error.Validation("Location description has invalid length", "Location description");
+            return GeneralErrors.Validation("Position description has invalid length", nameof(Description));
 
         return UnitResult.Success<Error>();
     }

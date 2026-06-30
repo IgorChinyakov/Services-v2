@@ -1,8 +1,6 @@
 using CSharpFunctionalExtensions;
 using DirectoryService.Domain.Entities.Ids;
 using DirectoryService.Domain.ValueObjects.Department;
-using Identifier = DirectoryService.Domain.ValueObjects.Department.Identifier;
-using Name = DirectoryService.Domain.ValueObjects.Position.Name;
 
 namespace DirectoryService.Domain.Entities;
 
@@ -25,6 +23,10 @@ public class Department : Entity<DepartmentId>
 
     public DepartmentId? ParentId { get; private set; }
 
+    public short Depth { get; private set; }
+
+    public string Path { get; private set; } = null!;
+
     public bool IsActive { get; private set; }
 
     public DateTime CreatedAt { get; private set; }
@@ -37,32 +39,33 @@ public class Department : Entity<DepartmentId>
 
     public IReadOnlyList<DepartmentLocation> DepartmentLocations => _departmentLocations;
 
-    public Department(Name name, Identifier identifier)
+    public Department(
+        Name name,
+        Identifier identifier,
+        Department? parent,
+        IEnumerable<LocationId> locationIds)
     {
+        Id = DepartmentId.New();
         Name = name;
         Identifier = identifier;
+        Parent = parent;
+        ParentId = parent?.Id;
+        Depth = parent is null ? (short)0 : checked((short)(parent.Depth + 1));
+        Path = parent is null
+            ? identifier.Value.ToLowerInvariant()
+            : $"{parent.Path}.{identifier.Value.ToLowerInvariant()}";
         IsActive = true;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = DateTime.UtcNow;
+
+        var utcNow = DateTime.UtcNow;
+        CreatedAt = utcNow;
+        UpdatedAt = utcNow;
+
+        foreach (var locationId in locationIds.Distinct())
+            AddLocation(locationId);
     }
 
-    public short Depth => (short)(Parent is null ? 0 : Parent.Depth + 1);
-
-    public string Path => CreatePath();
-
-    private string CreatePath()
+    public void AddLocation(LocationId locationId)
     {
-        var ids = new List<string>();
-        var current = this;
-
-        while (current is not null)
-        {
-            ids.Add(current.Identifier.Value.ToLowerInvariant());
-            current = current.Parent;
-        }
-
-        ids.Reverse();
-
-        return string.Join(".", ids);
+        _departmentLocations.Add(new DepartmentLocation(Id, locationId));
     }
 }

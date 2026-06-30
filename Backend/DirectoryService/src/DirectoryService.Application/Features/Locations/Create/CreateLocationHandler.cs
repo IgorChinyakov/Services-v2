@@ -8,7 +8,7 @@ using DirectoryService.Domain.ValueObjects.Location;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
 
-namespace DirectoryService.Application.Locations.Create;
+namespace DirectoryService.Application.Features.Locations.Create;
 
 public sealed class CreateLocationHandler
     : ICommandHandler<CreateLocationCommand, Guid>
