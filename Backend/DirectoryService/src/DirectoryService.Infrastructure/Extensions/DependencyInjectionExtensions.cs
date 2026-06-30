@@ -1,4 +1,5 @@
 ﻿using DirectoryService.Application.Abstractions.Repositories;
+using DirectoryService.Infrastructure.Database;
 using DirectoryService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -33,7 +34,10 @@ public static class DependencyInjectionExtensions
             options.UseLoggerFactory(loggerFactory);
         });
 
+        services.AddScoped<DbOperationExecutor>();
         services.AddScoped<ILocationRepository, LocationRepository>();
+        services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+        services.AddScoped<IPositionRepository, PositionRepository>();
 
         return services;
     }

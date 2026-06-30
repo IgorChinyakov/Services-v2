@@ -31,7 +31,7 @@ public partial class Identifier : ValueObject
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return Error.Validation(
+            return GeneralErrors.Validation(
                 "Department identifier is empty",
                 "Department identifier");
         }
@@ -39,13 +39,23 @@ public partial class Identifier : ValueObject
         var trimmed = value.Trim();
         var messages = new List<ErrorMessage>();
         if (trimmed.Length < MIN_LENGTH || trimmed.Length > MAX_LENGTH)
-            messages.Add(new("DepartmentIdentifier has invalid length", "Department identifier"));
+        {
+            messages.Add(new(
+                "field.is.invalid",
+                "Department identifier has invalid length",
+                nameof(Identifier)));
+        }
 
         if (!_identifierRegex.IsMatch(trimmed))
-            messages.Add(new("DepartmentIdentifier must contain latin letters only", "Department identifier"));
+        {
+            messages.Add(new(
+                "field.is.invalid",
+                "Department identifier must contain latin letters only",
+                nameof(Identifier)));
+        }
 
         return messages.Count > 0
-            ? Error.Validation(messages)
+            ? GeneralErrors.Validation(messages)
             : UnitResult.Success<Error>();
     }
 

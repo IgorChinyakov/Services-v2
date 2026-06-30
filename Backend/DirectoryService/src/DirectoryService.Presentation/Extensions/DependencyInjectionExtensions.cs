@@ -32,7 +32,7 @@ public static class DependencyInjectionExtensions
                         pair.Key)))
                     .ToArray();
 
-                var domainError = Error.Validation(errors);
+                var domainError = GeneralErrors.Validation(errors);
 
                 logger.LogWarning(
                     "Model binding validation failed for {RequestMethod} {RequestPath}. Errors: {@ValidationErrors}",

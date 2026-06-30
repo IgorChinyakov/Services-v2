@@ -9,7 +9,7 @@ public static class ValidationExtensions
 {
     public static Error ToError(this ValidationResult validationResult)
     {
-        return Error.Validation(validationResult.Errors.Select(failure =>
+        return GeneralErrors.Validation(validationResult.Errors.Select(failure =>
             new ErrorMessage(
                 "field.is.invalid",
                 failure.ErrorMessage,

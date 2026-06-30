@@ -27,11 +27,11 @@ public class Name : ValueObject
     public static UnitResult<Error> Validate(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
-            return Error.Validation("Department name is empty", "Department name");
+            return GeneralErrors.Validation("Department name is empty", nameof(Name));
 
         var trimmed = value.Trim();
         if (trimmed.Length < MIN_LENGTH || trimmed.Length > MAX_LENGTH)
-            Error.Validation("Department name has invalid length", "Department name");
+            return GeneralErrors.Validation("Department name has invalid length", nameof(Name));
 
         return UnitResult.Success<Error>();
     }

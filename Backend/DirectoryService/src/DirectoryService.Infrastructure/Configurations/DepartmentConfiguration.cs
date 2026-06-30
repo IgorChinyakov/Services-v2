@@ -43,6 +43,15 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
             .IsRequired(false)
             .HasColumnName("parent_id");
 
+        builder.Property(x => x.Depth)
+            .HasColumnName("depth")
+            .IsRequired();
+
+        builder.Property(x => x.Path)
+            .HasColumnName("path")
+            .HasMaxLength(1024)
+            .IsRequired();
+
         builder.Property(x => x.IsActive)
             .HasColumnName("is_active")
             .IsRequired();
@@ -71,11 +80,9 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
 
         builder.HasIndex(x => x.ParentId).HasDatabaseName("ix_department_parent_id");
         builder.HasIndex(x => x.CreatedAt).HasDatabaseName("ix_department_created_at");
+        builder.HasIndex(x => x.Path).IsUnique().HasDatabaseName("ix_departments_path");
 
         builder.OwnsOne(x => x.Name).HasIndex(x => x.Value).HasDatabaseName("ix_departments_name");
         builder.OwnsOne(x => x.Identifier).HasIndex(x => x.Value).IsUnique().HasDatabaseName("ix_departments_identifier");
-
-        builder.Ignore(x => x.Depth);
-        builder.Ignore(x => x.Path);
     }
 }

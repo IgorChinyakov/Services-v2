@@ -27,11 +27,11 @@ public class Name : ValueObject
     public static UnitResult<Error> Validate(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
-            return Error.Validation("Location name is empty", "Location name");
+            return GeneralErrors.Validation("Location name is empty", "Location name");
 
         var trimmed = value.Trim();
         if (trimmed.Length < MIN_LENGTH || trimmed.Length > MAX_LENGTH)
-            return Error.Validation("Location name has invalid length", "Location name");
+            return GeneralErrors.Validation("Location name has invalid length", "Location name");
 
         return UnitResult.Success<Error>();
     }

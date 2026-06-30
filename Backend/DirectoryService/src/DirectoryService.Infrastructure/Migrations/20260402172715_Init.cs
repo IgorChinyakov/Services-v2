@@ -21,7 +21,7 @@ namespace DirectoryService.Infrastructure.Migrations
                     parent_id = table.Column<Guid>(type: "uuid", nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -47,7 +47,7 @@ namespace DirectoryService.Infrastructure.Migrations
                     time_zone = table.Column<string>(type: "text", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -63,7 +63,7 @@ namespace DirectoryService.Infrastructure.Migrations
                     description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -76,7 +76,7 @@ namespace DirectoryService.Infrastructure.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     department_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false)
+                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
                 },
                 constraints: table =>
                 {
@@ -101,7 +101,7 @@ namespace DirectoryService.Infrastructure.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     department_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    position_id = table.Column<Guid>(type: "uuid", nullable: false)
+                    position_id = table.Column<Guid>(type: "uuid", nullable: false),
                 },
                 constraints: table =>
                 {

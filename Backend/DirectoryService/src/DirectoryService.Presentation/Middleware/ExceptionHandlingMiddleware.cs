@@ -81,25 +81,25 @@ public sealed class ExceptionHandlingMiddleware
         return exception switch
         {
             ValidationException validationException =>
-                Error.Validation(validationException.Errors.Select(error =>
+                GeneralErrors.Validation(validationException.Errors.Select(error =>
                     new ErrorMessage(
                         "field.is.invalid",
                         error.ErrorMessage,
                         error.PropertyName))),
 
             BadHttpRequestException =>
-                Error.Validation("The HTTP request is invalid."),
+                GeneralErrors.Validation("The HTTP request is invalid."),
 
             ArgumentException argumentException =>
-                Error.Validation(argumentException.Message),
+                GeneralErrors.Validation(argumentException.Message),
 
             UnauthorizedAccessException =>
-                Error.Authorization("Access denied."),
+                GeneralErrors.Authorization("Access denied."),
 
             KeyNotFoundException keyNotFoundException =>
-                Error.NotFound(keyNotFoundException.Message),
+                GeneralErrors.NotFound(keyNotFoundException.Message),
 
-            _ => Error.Failure("An unexpected error occurred."),
+            _ => GeneralErrors.Failure("An unexpected error occurred."),
         };
     }
 }

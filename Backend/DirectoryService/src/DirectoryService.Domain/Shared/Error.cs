@@ -23,41 +23,8 @@ public record Error
 
     public string GetMessage() => string.Join(";", Messages.Select(m => m.ToString()));
 
-    public static Error Validation(string message, string? invalidField = null) =>
-        new([new ErrorMessage("field.is.invalid", message, invalidField)], ErrorType.Validation);
-
-    public static Error NotFound(string message, string? invalidField = null) =>
-        new([new ErrorMessage("not.found", message, invalidField)], ErrorType.NotFound);
-
-    public static Error Failure(string message, string? invalidField = null) =>
-        new([new ErrorMessage("failure", message, invalidField)], ErrorType.Failure);
-
-    public static Error Conflict(string message, string? invalidField = null) =>
-        new([new ErrorMessage("conflict", message, invalidField)], ErrorType.Conflict);
-
-    public static Error Authentication(string message, string? invalidField = null) =>
-        new([new ErrorMessage("authentication", message, invalidField)], ErrorType.Authentication);
-
-    public static Error Authorization(string message, string? invalidField = null) =>
-        new([new ErrorMessage("authorization", message, invalidField)], ErrorType.Authorization);
-
-    public static Error Validation(IEnumerable<ErrorMessage> messages) =>
-        new(messages, ErrorType.Validation);
-
-    public static Error NotFound(IEnumerable<ErrorMessage> messages) =>
-        new(messages, ErrorType.NotFound);
-
-    public static Error Failure(IEnumerable<ErrorMessage> messages) =>
-        new(messages, ErrorType.Failure);
-
-    public static Error Conflict(IEnumerable<ErrorMessage> messages) =>
-        new(messages, ErrorType.Conflict);
-
-    public static Error Authentication(IEnumerable<ErrorMessage> messages) =>
-        new(messages, ErrorType.Authentication);
-
-    public static Error Authorization(IEnumerable<ErrorMessage> messages) =>
-        new(messages, ErrorType.Authorization);
+    internal static Error Create(IEnumerable<ErrorMessage> messages, ErrorType type) =>
+        new(messages, type);
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]

@@ -59,7 +59,7 @@ public class Address : ValueObject
         ValidateField(building, nameof(Building), "Building", messages);
 
         return messages.Count > 0
-            ? Error.Validation(messages)
+            ? GeneralErrors.Validation(messages)
             : UnitResult.Success<Error>();
     }
 

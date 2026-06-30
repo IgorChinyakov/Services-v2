@@ -1,7 +1,7 @@
 ﻿using DirectoryService.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
-namespace DirectoryService.Infrastructure;
+namespace DirectoryService.Infrastructure.Database;
 
 public class DirectoryServiceDbContext : DbContext
 {

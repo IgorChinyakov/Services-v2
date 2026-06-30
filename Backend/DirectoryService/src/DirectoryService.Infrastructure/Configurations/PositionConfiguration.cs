@@ -56,6 +56,8 @@ public class PositionConfiguration : IEntityTypeConfiguration<Position>
 
         builder.OwnsOne(x => x.Name)
             .HasIndex(x => x.Value)
-            .HasDatabaseName("ix_positions_name");
+            .IsUnique()
+            .HasFilter("is_active = true")
+            .HasDatabaseName("ix_positions_active_name");
     }
 }
