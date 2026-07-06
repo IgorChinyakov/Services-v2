@@ -197,20 +197,31 @@ public sealed class DepartmentRepository : IDepartmentRepository
                                                WHERE id = {departmentId.Value} AND is_active = TRUE
                                                FOR UPDATE
                                                """)
-                .FirstOrDefaultAsync(cancellationToken);
-
+                .SingleOrDefaultAsync(cancellationToken);
 
             if (department is null)
-                return GeneralErrors.Failure("Department is not found.");
+            {
+                var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                if (rollbackResult.IsFailure)
+                    return rollbackResult;
+
+                return GeneralErrors.NotFound("Department is not found.", nameof(departmentId));
+            }
 
             await _dbContext.Database
                 .SqlQuery<DepartmentMoveInfo>($"""
-                                               SELECT *
+                                               SELECT
+                                                   id AS "Id",
+                                                   identifier AS "Identifier",
+                                                   path::text AS "Path",
+                                                   depth AS "Depth",
+                                                   is_active AS "IsActive"
                                                FROM departments
-                                               WHERE id = path <@ {department.Path}::ltree
+                                               WHERE path <@ {department.Path}::ltree
+                                               ORDER BY id
                                                FOR UPDATE
                                                """)
-                .FirstOrDefaultAsync(cancellationToken);
+                .ToListAsync(cancellationToken);
 
             DepartmentMoveInfo? parent = null;
             if (parentId is not null)
@@ -227,10 +238,16 @@ public sealed class DepartmentRepository : IDepartmentRepository
                                                    WHERE id = {parentId.Value} AND is_active = TRUE
                                                    FOR UPDATE
                                                    """)
-                    .FirstOrDefaultAsync(cancellationToken);
+                    .SingleOrDefaultAsync(cancellationToken);
 
                 if (parent is null)
-                    return GeneralErrors.Failure("Department parent is not found.");
+                {
+                    var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                    if (rollbackResult.IsFailure)
+                        return rollbackResult;
+
+                    return GeneralErrors.NotFound("Department parent is not found.", nameof(parentId));
+                }
             }
 
             bool isParentInsideDepartmentSubtree = false;
@@ -238,13 +255,15 @@ public sealed class DepartmentRepository : IDepartmentRepository
             {
                 isParentInsideDepartmentSubtree = await _dbContext.Database.SqlQuery<bool>(
                     $"""
-                        SELECT {parent.Path}::ltree <@ {department.Path}::ltree
+                        SELECT {parent.Path}::ltree <@ {department.Path}::ltree AS "Value"
                      """).SingleAsync(cancellationToken);
             }
 
             if (isParentInsideDepartmentSubtree)
             {
-                await transactionScope.RollbackAsync(cancellationToken);
+                var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                if (rollbackResult.IsFailure)
+                    return rollbackResult;
 
                 return GeneralErrors.Conflict(
                     "Cannot move department under its own descendant.",
@@ -259,7 +278,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 : checked((short)(parent.Depth + 1));
             int depthDelta = newDepth - department.Depth;
 
-            await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+            var updatedRows = await _dbContext.Database.ExecuteSqlInterpolatedAsync(
                 $"""
                  UPDATE departments
                  SET
@@ -273,20 +292,19 @@ public sealed class DepartmentRepository : IDepartmentRepository
                         ELSE {newPath}::ltree || subpath(path, nlevel({oldPath}::ltree))
                     END,
                     updated_at = now(),
-                    depth = depth + {depthDelta}
-                 WHERE path <@ {oldPath}
-                        
-                    
+                    depth = (depth + {depthDelta})::smallint
+                 WHERE path <@ {oldPath}::ltree
                  """, cancellationToken);
 
             _logger.LogInformation(
-                "Department parent move was implemented. DepartmentId {DepartmentId}. ParentId {ParentId}. DepartmentFound {DepartmentFound}. ParentFound {ParentFound}",
+                "Department parent was updated. DepartmentId {DepartmentId}. ParentId {ParentId}. UpdatedRows {UpdatedRows}",
                 departmentId.Value,
                 parentId?.Value,
-                department is not null,
-                parentId is null || parent is not null);
+                updatedRows);
 
-            await transactionScope.CommitAsync(cancellationToken);
+            var commitResult = await transactionScope.CommitAsync(cancellationToken);
+            if (commitResult.IsFailure)
+                return commitResult;
 
             return UnitResult.Success<Error>();
         }
