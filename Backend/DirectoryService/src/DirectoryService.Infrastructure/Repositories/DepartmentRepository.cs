@@ -1,9 +1,11 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Database;
+using DirectoryService.Infrastructure.Errors;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -12,85 +14,112 @@ namespace DirectoryService.Infrastructure.Repositories;
 public sealed class DepartmentRepository : IDepartmentRepository
 {
     private readonly DirectoryServiceDbContext _dbContext;
-    private readonly DbOperationExecutor _dbOperationExecutor;
+    private readonly ITransactionManager _transactionManager;
     private readonly ILogger<DepartmentRepository> _logger;
 
     public DepartmentRepository(
         DirectoryServiceDbContext dbContext,
-        DbOperationExecutor dbOperationExecutor,
-        ILogger<DepartmentRepository> logger)
+        ILogger<DepartmentRepository> logger,
+        ITransactionManager transactionManager)
     {
         _dbContext = dbContext;
-        _dbOperationExecutor = dbOperationExecutor;
         _logger = logger;
+        _transactionManager = transactionManager;
     }
 
     public async Task<Result<bool, Error>> IdentifierExistsAsync(
         string identifier,
         CancellationToken cancellationToken)
     {
-        return await _dbOperationExecutor.ExecuteAsync(
-            async ct =>
-            {
-                var normalizedIdentifier = identifier.Trim();
+        try
+        {
+            var normalizedIdentifier = identifier.Trim();
 
-                return await _dbContext.Departments
-                    .AsNoTracking()
-                    .AnyAsync(
-                        department => department.Identifier.Value == normalizedIdentifier,
-                        ct);
-            },
-            "check department identifier uniqueness",
-            new { DepartmentIdentifier = identifier },
-            cancellationToken);
+            return await _dbContext.Departments
+                .AsNoTracking()
+                .AnyAsync(
+                    department => department.Identifier.Value == normalizedIdentifier,
+                    cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to check department identifier uniqueness. DepartmentIdentifier {DepartmentIdentifier}",
+                identifier);
+
+            return DatabaseErrors.OperationFailed("check department identifier uniqueness");
+        }
     }
 
     public async Task<Result<Department, Error>> GetActiveByIdAsync(
         DepartmentId departmentId,
         CancellationToken cancellationToken)
     {
-        return await _dbOperationExecutor.ExecuteResultAsync<Department>(
-            async ct =>
-            {
-                var department = await _dbContext.Departments
-                    .FirstOrDefaultAsync(
-                        item => item.Id == departmentId && item.IsActive,
-                        ct);
+        try
+        {
+            var department = await _dbContext.Departments
+                .FirstOrDefaultAsync(
+                    item => item.Id == departmentId && item.IsActive,
+                    cancellationToken);
 
-                if (department is null)
-                    return GeneralErrors.NotFound("Department does not exist or is inactive.");
+            if (department is null)
+                return GeneralErrors.NotFound("Department does not exist or is inactive.");
 
-                return department;
-            },
-            "load active department",
-            new { DepartmentId = departmentId.Value },
-            cancellationToken);
+            return department;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to load active department. DepartmentId {DepartmentId}",
+                departmentId.Value);
+
+            return DatabaseErrors.OperationFailed("load active department");
+        }
     }
 
     public async Task<Result<IReadOnlyCollection<LocationId>, Error>> GetMissingActiveLocationIdsAsync(
         IReadOnlyCollection<LocationId> locationIds,
         CancellationToken cancellationToken)
     {
-        return await _dbOperationExecutor.ExecuteAsync<IReadOnlyCollection<LocationId>>(
-            async ct =>
-            {
-                var requestedLocationIds = locationIds.Distinct().ToArray();
+        try
+        {
+            var requestedLocationIds = locationIds.Distinct().ToArray();
 
-                var existingLocationIds = await _dbContext.Locations
-                    .AsNoTracking()
-                    .Where(location => location.IsActive && requestedLocationIds.Contains(location.Id))
-                    .Select(location => location.Id)
-                    .ToArrayAsync(ct);
+            var existingLocationIds = await _dbContext.Locations
+                .AsNoTracking()
+                .Where(location => location.IsActive && requestedLocationIds.Contains(location.Id))
+                .Select(location => location.Id)
+                .ToArrayAsync(cancellationToken);
 
-                IReadOnlyCollection<LocationId> missingLocationIds = requestedLocationIds
-                    .Except(existingLocationIds)
-                    .ToArray();
+            IReadOnlyCollection<LocationId> missingLocationIds = requestedLocationIds
+                .Except(existingLocationIds)
+                .ToArray();
 
-                return missingLocationIds;
-            },
-            "check active locations",
-            new { LocationIds = locationIds.Select(id => id.Value) },
-            cancellationToken);
+            return Result.Success<IReadOnlyCollection<LocationId>, Error>(missingLocationIds);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to check active locations. LocationIds {@LocationIds}",
+                locationIds.Select(id => id.Value));
+
+            return DatabaseErrors.OperationFailed("check active locations");
+        }
     }
 
     public async Task<Result<int, Error>> ReplaceLocationsAsync(
@@ -101,48 +130,202 @@ public sealed class DepartmentRepository : IDepartmentRepository
         ArgumentNullException.ThrowIfNull(departmentId);
         ArgumentNullException.ThrowIfNull(locationIds);
 
-        DepartmentLocation[] departmentLocations = [];
+        try
+        {
+            var distinctLocationIds = locationIds.Distinct().ToArray();
 
-        return await _dbOperationExecutor.ExecuteSaveAsync(
-            async ct =>
+            _logger.LogDebug(
+                "Replacing department locations. DepartmentId {DepartmentId}. LocationCount {LocationCount}",
+                departmentId.Value,
+                distinctLocationIds.Length);
+
+            await _dbContext.Set<DepartmentLocation>()
+                .Where(departmentLocation => departmentLocation.DepartmentId == departmentId)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            var departmentLocations = distinctLocationIds
+                .Select(locationId => new DepartmentLocation(departmentId, locationId))
+                .ToArray();
+
+            await _dbContext.Set<DepartmentLocation>().AddRangeAsync(departmentLocations, cancellationToken);
+
+            _logger.LogDebug(
+                "Department locations replacement added to change tracker. DepartmentId {DepartmentId}. LocationCount {LocationCount}",
+                departmentId.Value,
+                departmentLocations.Length);
+
+            return departmentLocations.Length;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to replace department locations. DepartmentId {DepartmentId}. LocationIds {@LocationIds}",
+                departmentId.Value,
+                locationIds.Select(id => id.Value));
+
+            return DatabaseErrors.OperationFailed("replace department locations");
+        }
+    }
+
+    public async Task<UnitResult<Error>> MoveParentAsync(
+        DepartmentId departmentId,
+        DepartmentId? parentId,
+        CancellationToken cancellationToken)
+    {
+        var transactionScopeResult = await _transactionManager.BeginTransactionAsync(cancellationToken);
+        if (transactionScopeResult.IsFailure)
+            return UnitResult.Failure(transactionScopeResult.Error);
+
+        await using var transactionScope = transactionScopeResult.Value;
+
+        try
+        {
+            var department = await _dbContext.Database
+                .SqlQuery<DepartmentMoveInfo>($"""
+                                               SELECT
+                                                   id AS "Id",
+                                                   identifier AS "Identifier",
+                                                   path::text AS "Path",
+                                                   depth AS "Depth",
+                                                   is_active AS "IsActive"
+                                               FROM departments
+                                               WHERE id = {departmentId.Value} AND is_active = TRUE
+                                               FOR UPDATE
+                                               """)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (department is null)
             {
-                var distinctLocationIds = locationIds.Distinct().ToArray();
+                var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                if (rollbackResult.IsFailure)
+                    return rollbackResult;
 
-                _logger.LogDebug(
-                    "Replacing department locations. DepartmentId {DepartmentId}. LocationCount {LocationCount}",
-                    departmentId.Value,
-                    distinctLocationIds.Length);
+                return GeneralErrors.NotFound("Department is not found.", nameof(departmentId));
+            }
 
-                await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
+            await _dbContext.Database
+                .SqlQuery<DepartmentMoveInfo>($"""
+                                               SELECT
+                                                   id AS "Id",
+                                                   identifier AS "Identifier",
+                                                   path::text AS "Path",
+                                                   depth AS "Depth",
+                                                   is_active AS "IsActive"
+                                               FROM departments
+                                               WHERE path <@ {department.Path}::ltree
+                                               ORDER BY id
+                                               FOR UPDATE
+                                               """)
+                .ToListAsync(cancellationToken);
 
-                await _dbContext.Set<DepartmentLocation>()
-                    .Where(departmentLocation => departmentLocation.DepartmentId == departmentId)
-                    .ExecuteDeleteAsync(ct);
-
-                departmentLocations = distinctLocationIds
-                    .Select(locationId => new DepartmentLocation(departmentId, locationId))
-                    .ToArray();
-
-                await _dbContext.Set<DepartmentLocation>().AddRangeAsync(departmentLocations, ct);
-                await _dbContext.SaveChangesAsync(ct);
-                await transaction.CommitAsync(ct);
-
-                _logger.LogInformation(
-                    "Department locations successfully replaced. DepartmentId {DepartmentId}. LocationCount {LocationCount}",
-                    departmentId.Value,
-                    departmentLocations.Length);
-
-                return departmentLocations.Length;
-            },
-            () => Detach(departmentLocations),
-            "department locations",
-            new
+            DepartmentMoveInfo? parent = null;
+            if (parentId is not null)
             {
-                DepartmentId = departmentId.Value,
-                LocationIds = locationIds.Select(id => id.Value),
-            },
-            cancellationToken,
-            "Department contains duplicate location links.");
+                parent = await _dbContext.Database
+                    .SqlQuery<DepartmentMoveInfo>($"""
+                                                   SELECT
+                                                       id AS "Id",
+                                                       identifier AS "Identifier",
+                                                       path::text AS "Path",
+                                                       depth AS "Depth",
+                                                       is_active AS "IsActive"
+                                                   FROM departments
+                                                   WHERE id = {parentId.Value} AND is_active = TRUE
+                                                   FOR UPDATE
+                                                   """)
+                    .SingleOrDefaultAsync(cancellationToken);
+
+                if (parent is null)
+                {
+                    var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                    if (rollbackResult.IsFailure)
+                        return rollbackResult;
+
+                    return GeneralErrors.NotFound("Department parent is not found.", nameof(parentId));
+                }
+            }
+
+            bool isParentInsideDepartmentSubtree = false;
+            if (parent is not null)
+            {
+                isParentInsideDepartmentSubtree = await _dbContext.Database.SqlQuery<bool>(
+                    $"""
+                        SELECT {parent.Path}::ltree <@ {department.Path}::ltree AS "Value"
+                     """).SingleAsync(cancellationToken);
+            }
+
+            if (isParentInsideDepartmentSubtree)
+            {
+                var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                if (rollbackResult.IsFailure)
+                    return rollbackResult;
+
+                return GeneralErrors.Conflict(
+                    "Cannot move department under its own descendant.",
+                    nameof(parentId));
+            }
+
+            string oldPath = department.Path;
+            string newPath = parent is null ? department.Identifier : parent.Path + "." + department.Identifier;
+            Guid? newParentId = parent is null ? null : parent.Id;
+            short newDepth = parent is null
+                ? (short)0
+                : checked((short)(parent.Depth + 1));
+            int depthDelta = newDepth - department.Depth;
+
+            var updatedRows = await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                 UPDATE departments
+                 SET
+                     parent_id = CASE 
+                        WHEN id = {departmentId.Value} 
+                        THEN {newParentId} 
+                        ELSE parent_id 
+                    END,
+                    path = CASE
+                        WHEN id = {departmentId.Value} THEN {newPath}::ltree
+                        ELSE {newPath}::ltree || subpath(path, nlevel({oldPath}::ltree))
+                    END,
+                    updated_at = now(),
+                    depth = (depth + {depthDelta})::smallint
+                 WHERE path <@ {oldPath}::ltree
+                 """, cancellationToken);
+
+            _logger.LogInformation(
+                "Department parent was updated. DepartmentId {DepartmentId}. ParentId {ParentId}. UpdatedRows {UpdatedRows}",
+                departmentId.Value,
+                parentId?.Value,
+                updatedRows);
+
+            var commitResult = await transactionScope.CommitAsync(cancellationToken);
+            if (commitResult.IsFailure)
+                return commitResult;
+
+            return UnitResult.Success<Error>();
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+            if (rollbackResult.IsFailure)
+                return rollbackResult;
+
+            _logger.LogError(
+                exception,
+                "Failed to move department parent. DepartmentId {DepartmentId}. ParentId {ParentId}",
+                departmentId.Value,
+                parentId?.Value);
+
+            return DatabaseErrors.OperationFailed("move department parent");
+        }
     }
 
     public async Task<Result<Department, Error>> AddAsync(
@@ -151,46 +334,19 @@ public sealed class DepartmentRepository : IDepartmentRepository
     {
         ArgumentNullException.ThrowIfNull(department);
 
-        return await _dbOperationExecutor.ExecuteSaveAsync(
-            async ct =>
-            {
-                _logger.LogDebug(
-                    "Persisting department {DepartmentId} to database",
-                    department.Id.Value);
+        _logger.LogDebug(
+            "Adding department {DepartmentId} to change tracker",
+            department.Id.Value);
 
-                await _dbContext.Departments.AddAsync(department, ct);
-                await _dbContext.SaveChangesAsync(ct);
+        await _dbContext.Departments.AddAsync(department, cancellationToken);
 
-                _logger.LogInformation(
-                    "Department {DepartmentId} successfully persisted to database",
-                    department.Id.Value);
-
-                return department;
-            },
-            () => Detach(department),
-            "department",
-            new { DepartmentId = department.Id.Value },
-            cancellationToken);
+        return department;
     }
 
-    private void Detach(Department department)
-    {
-        foreach (var departmentLocation in department.DepartmentLocations)
-            DetachEntry(departmentLocation);
-
-        DetachEntry(department);
-    }
-
-    private void Detach(IEnumerable<DepartmentLocation> departmentLocations)
-    {
-        foreach (var departmentLocation in departmentLocations)
-            DetachEntry(departmentLocation);
-    }
-
-    private void DetachEntry(object entity)
-    {
-        var entry = _dbContext.Entry(entity);
-        if (entry.State != EntityState.Detached)
-            entry.State = EntityState.Detached;
-    }
+    private sealed record DepartmentMoveInfo(
+        Guid Id,
+        string Identifier,
+        string Path,
+        short Depth,
+        bool IsActive);
 }

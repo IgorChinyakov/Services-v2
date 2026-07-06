@@ -1,6 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
+using DirectoryService.Application.Features.Departments.UpdateParent;
 using DirectoryService.Application.Features.Locations.Create;
 using DirectoryService.Application.Features.Positions.Create;
 using FluentValidation;
@@ -15,6 +16,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ICommandHandler<CreateLocationCommand, Guid>, CreateLocationHandler>();
         services.AddScoped<ICommandHandler<CreateDepartmentCommand, Guid>, CreateDepartmentHandler>();
         services.AddScoped<ICommandHandler<UpdateDepartmentLocationsCommand>, UpdateDepartmentLocationsHandler>();
+        services.AddScoped<ICommandHandler<UpdateDepartmentParentCommand>, UpdateDepartmentParentHandler>();
         services.AddScoped<ICommandHandler<CreatePositionCommand, Guid>, CreatePositionHandler>();
         services.AddValidatorsFromAssemblyContaining<CreateLocationCommandValidator>();
 

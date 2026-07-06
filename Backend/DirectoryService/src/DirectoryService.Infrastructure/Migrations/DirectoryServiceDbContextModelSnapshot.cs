@@ -19,7 +19,8 @@ namespace DirectoryService.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "9.0.14")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+                .HasAnnotation("Relational:MaxIdentifierLength", 63)
+                .HasPostgresExtension("ltree");
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
@@ -47,8 +48,7 @@ namespace DirectoryService.Infrastructure.Migrations
 
                     b.Property<string>("Path")
                         .IsRequired()
-                        .HasMaxLength(1024)
-                        .HasColumnType("character varying(1024)")
+                        .HasColumnType("ltree")
                         .HasColumnName("path");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -66,6 +66,10 @@ namespace DirectoryService.Infrastructure.Migrations
                     b.HasIndex("Path")
                         .IsUnique()
                         .HasDatabaseName("ix_departments_path");
+
+                    b.HasIndex("Path")
+                        .HasDatabaseName("ix_departments_path_gist")
+                        .HasMethod("gist");
 
                     b.ToTable("departments", (string)null);
                 });

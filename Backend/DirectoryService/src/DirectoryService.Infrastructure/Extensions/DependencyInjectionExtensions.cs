@@ -1,4 +1,5 @@
-﻿using DirectoryService.Application.Abstractions.Repositories;
+﻿using DirectoryService.Application.Abstractions.Database;
+using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Infrastructure.Database;
 using DirectoryService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,7 @@ public static class DependencyInjectionExtensions
             options.UseLoggerFactory(loggerFactory);
         });
 
-        services.AddScoped<DbOperationExecutor>();
+        services.AddScoped<ITransactionManager, TransactionManager>();
         services.AddScoped<ILocationRepository, LocationRepository>();
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         services.AddScoped<IPositionRepository, PositionRepository>();

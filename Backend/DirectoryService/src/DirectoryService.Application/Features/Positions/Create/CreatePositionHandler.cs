@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
@@ -15,15 +16,18 @@ public sealed class CreatePositionHandler
     : ICommandHandler<CreatePositionCommand, Guid>
 {
     private readonly IPositionRepository _positionRepository;
+    private readonly ITransactionManager _transactionManager;
     private readonly IValidator<CreatePositionCommand> _validator;
     private readonly ILogger<CreatePositionHandler> _logger;
 
     public CreatePositionHandler(
         IPositionRepository positionRepository,
+        ITransactionManager transactionManager,
         IValidator<CreatePositionCommand> validator,
         ILogger<CreatePositionHandler> logger)
     {
         _positionRepository = positionRepository;
+        _transactionManager = transactionManager;
         _validator = validator;
         _logger = logger;
     }
@@ -101,11 +105,26 @@ public sealed class CreatePositionHandler
             description,
             departmentIds);
 
-        var saveResult = await _positionRepository.AddAsync(position, cancellationToken);
-        if (saveResult.IsFailure)
+        var addResult = await _positionRepository.AddAsync(position, cancellationToken);
+        if (addResult.IsFailure)
         {
             _logger.LogWarning(
                 "Position creation failed. ErrorType {ErrorType}. Errors: {@ErrorMessages}",
+                addResult.Error.Type,
+                addResult.Error.Messages);
+
+            return addResult.Error;
+        }
+
+        var saveResult = await _transactionManager.SaveChangesAsync(
+            "position",
+            new { PositionId = position.Id.Value },
+            "An active position with the same name already exists.",
+            cancellationToken);
+        if (saveResult.IsFailure)
+        {
+            _logger.LogWarning(
+                "Position creation failed while saving. ErrorType {ErrorType}. Errors: {@ErrorMessages}",
                 saveResult.Error.Type,
                 saveResult.Error.Messages);
 
@@ -114,8 +133,8 @@ public sealed class CreatePositionHandler
 
         _logger.LogInformation(
             "Position created successfully with id {PositionId}",
-            saveResult.Value.Id.Value);
+            position.Id.Value);
 
-        return saveResult.Value.Id.Value;
+        return position.Id.Value;
     }
 }
