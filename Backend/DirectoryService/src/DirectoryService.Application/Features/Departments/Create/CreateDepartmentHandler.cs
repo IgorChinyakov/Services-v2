@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
@@ -15,15 +16,18 @@ public sealed class CreateDepartmentHandler
     : ICommandHandler<CreateDepartmentCommand, Guid>
 {
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly ITransactionManager _transactionManager;
     private readonly IValidator<CreateDepartmentCommand> _validator;
     private readonly ILogger<CreateDepartmentHandler> _logger;
 
     public CreateDepartmentHandler(
         IDepartmentRepository departmentRepository,
+        ITransactionManager transactionManager,
         IValidator<CreateDepartmentCommand> validator,
         ILogger<CreateDepartmentHandler> logger)
     {
         _departmentRepository = departmentRepository;
+        _transactionManager = transactionManager;
         _validator = validator;
         _logger = logger;
     }
@@ -110,11 +114,26 @@ public sealed class CreateDepartmentHandler
             parent,
             locationIds);
 
-        var saveResult = await _departmentRepository.AddAsync(department, cancellationToken);
-        if (saveResult.IsFailure)
+        var addResult = await _departmentRepository.AddAsync(department, cancellationToken);
+        if (addResult.IsFailure)
         {
             _logger.LogWarning(
                 "Department creation failed. ErrorType {ErrorType}. Errors: {@ErrorMessages}",
+                addResult.Error.Type,
+                addResult.Error.Messages);
+
+            return addResult.Error;
+        }
+
+        var saveResult = await _transactionManager.SaveChangesAsync(
+            "department",
+            new { DepartmentId = department.Id.Value },
+            "Department with the same identifier or path already exists.",
+            cancellationToken);
+        if (saveResult.IsFailure)
+        {
+            _logger.LogWarning(
+                "Department creation failed while saving. ErrorType {ErrorType}. Errors: {@ErrorMessages}",
                 saveResult.Error.Type,
                 saveResult.Error.Messages);
 
@@ -123,10 +142,10 @@ public sealed class CreateDepartmentHandler
 
         _logger.LogInformation(
             "Department created successfully with id {DepartmentId}. Path {DepartmentPath}. Depth {DepartmentDepth}",
-            saveResult.Value.Id.Value,
-            saveResult.Value.Path,
-            saveResult.Value.Depth);
+            department.Id.Value,
+            department.Path,
+            department.Depth);
 
-        return saveResult.Value.Id.Value;
+        return department.Id.Value;
     }
 }

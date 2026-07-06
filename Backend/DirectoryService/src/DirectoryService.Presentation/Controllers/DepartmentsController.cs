@@ -1,6 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
+using DirectoryService.Application.Features.Departments.UpdateParent;
 using DirectoryService.Contracts.Departments.Requests;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Presentation.ApiResponse;
@@ -14,15 +15,18 @@ public sealed class DepartmentsController : ControllerBase
 {
     private readonly ICommandHandler<CreateDepartmentCommand, Guid> _createDepartmentHandler;
     private readonly ICommandHandler<UpdateDepartmentLocationsCommand> _updateDepartmentLocationsHandler;
+    private readonly ICommandHandler<UpdateDepartmentParentCommand> _updateDepartmentParentHandler;
     private readonly ILogger<DepartmentsController> _logger;
 
     public DepartmentsController(
         ICommandHandler<CreateDepartmentCommand, Guid> createDepartmentHandler,
         ICommandHandler<UpdateDepartmentLocationsCommand> updateDepartmentLocationsHandler,
+        ICommandHandler<UpdateDepartmentParentCommand> updateDepartmentParentHandler,
         ILogger<DepartmentsController> logger)
     {
         _createDepartmentHandler = createDepartmentHandler;
         _updateDepartmentLocationsHandler = updateDepartmentLocationsHandler;
+        _updateDepartmentParentHandler = updateDepartmentParentHandler;
         _logger = logger;
     }
 
@@ -75,6 +79,32 @@ public sealed class DepartmentsController : ControllerBase
             request.LocationIds);
 
         var result = await _updateDepartmentLocationsHandler.Handle(command, cancellationToken);
+
+        return result;
+    }
+
+    [HttpPut("{departmentId:guid}/parent")]
+    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> UpdateParentAsync(
+        Guid departmentId,
+        [FromBody] UpdateDepartmentParentRequest request,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received update department parent request. DepartmentId {DepartmentId}. ParentId {ParentId}. TraceId {TraceId}",
+            departmentId,
+            request.ParentId,
+            HttpContext.TraceIdentifier);
+
+        var command = new UpdateDepartmentParentCommand(
+            departmentId,
+            request.ParentId);
+
+        var result = await _updateDepartmentParentHandler.Handle(command, cancellationToken);
 
         return result;
     }

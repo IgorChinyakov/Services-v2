@@ -24,6 +24,11 @@ public interface IDepartmentRepository
         IReadOnlyCollection<LocationId> locationIds,
         CancellationToken cancellationToken);
 
+    Task<UnitResult<Error>> MoveParentAsync(
+        DepartmentId departmentId,
+        DepartmentId? parentId,
+        CancellationToken cancellationToken);
+
     Task<Result<Department, Error>> AddAsync(
         Department department,
         CancellationToken cancellationToken);

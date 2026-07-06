@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
@@ -13,15 +14,18 @@ public sealed class UpdateDepartmentLocationsHandler
     : ICommandHandler<UpdateDepartmentLocationsCommand>
 {
     private readonly IDepartmentRepository _departmentRepository;
+    private readonly ITransactionManager _transactionManager;
     private readonly IValidator<UpdateDepartmentLocationsCommand> _validator;
     private readonly ILogger<UpdateDepartmentLocationsHandler> _logger;
 
     public UpdateDepartmentLocationsHandler(
         IDepartmentRepository departmentRepository,
+        ITransactionManager transactionManager,
         IValidator<UpdateDepartmentLocationsCommand> validator,
         ILogger<UpdateDepartmentLocationsHandler> logger)
     {
         _departmentRepository = departmentRepository;
+        _transactionManager = transactionManager;
         _validator = validator;
         _logger = logger;
     }
@@ -76,12 +80,22 @@ public sealed class UpdateDepartmentLocationsHandler
                 nameof(UpdateDepartmentLocationsCommand.LocationIds));
         }
 
+        var transactionResult = await _transactionManager.BeginTransactionAsync(cancellationToken);
+        if (transactionResult.IsFailure)
+            return transactionResult.Error;
+
+        await using var transaction = transactionResult.Value;
+
         var updateResult = await _departmentRepository.ReplaceLocationsAsync(
             departmentId,
             locationIds,
             cancellationToken);
         if (updateResult.IsFailure)
         {
+            var rollbackResult = await transaction.RollbackAsync(cancellationToken);
+            if (rollbackResult.IsFailure)
+                return rollbackResult.Error;
+
             _logger.LogWarning(
                 "Department locations update failed. DepartmentId {DepartmentId}. ErrorType {ErrorType}. Errors: {@ErrorMessages}",
                 command.DepartmentId,
@@ -90,6 +104,34 @@ public sealed class UpdateDepartmentLocationsHandler
 
             return updateResult.Error;
         }
+
+        var saveResult = await _transactionManager.SaveChangesAsync(
+            "department locations",
+            new
+            {
+                DepartmentId = departmentId.Value,
+                LocationIds = locationIds.Select(id => id.Value),
+            },
+            "Department contains duplicate location links.",
+            cancellationToken);
+        if (saveResult.IsFailure)
+        {
+            var rollbackResult = await transaction.RollbackAsync(cancellationToken);
+            if (rollbackResult.IsFailure)
+                return rollbackResult.Error;
+
+            _logger.LogWarning(
+                "Department locations update failed while saving. DepartmentId {DepartmentId}. ErrorType {ErrorType}. Errors: {@ErrorMessages}",
+                command.DepartmentId,
+                saveResult.Error.Type,
+                saveResult.Error.Messages);
+
+            return saveResult.Error;
+        }
+
+        var commitResult = await transaction.CommitAsync(cancellationToken);
+        if (commitResult.IsFailure)
+            return commitResult.Error;
 
         _logger.LogInformation(
             "Department locations updated successfully. DepartmentId {DepartmentId}. LocationCount {LocationCount}",

@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
@@ -14,15 +15,18 @@ public sealed class CreateLocationHandler
     : ICommandHandler<CreateLocationCommand, Guid>
 {
     private readonly ILocationRepository _locationRepository;
+    private readonly ITransactionManager _transactionManager;
     private readonly IValidator<CreateLocationCommand> _validator;
     private readonly ILogger<CreateLocationHandler> _logger;
 
     public CreateLocationHandler(
         ILocationRepository locationRepository,
+        ITransactionManager transactionManager,
         IValidator<CreateLocationCommand> validator,
         ILogger<CreateLocationHandler> logger)
     {
         _locationRepository = locationRepository;
+        _transactionManager = transactionManager;
         _validator = validator;
         _logger = logger;
     }
@@ -72,11 +76,26 @@ public sealed class CreateLocationHandler
             addressResult.Value,
             timeZoneResult.Value);
 
-        var saveResult = await _locationRepository.AddAsync(location, cancellationToken);
-        if (saveResult.IsFailure)
+        var addResult = await _locationRepository.AddAsync(location, cancellationToken);
+        if (addResult.IsFailure)
         {
             _logger.LogWarning(
                 "Location creation failed. ErrorType {ErrorType}. Errors: {@ErrorMessages}",
+                addResult.Error.Type,
+                addResult.Error.Messages);
+
+            return addResult.Error;
+        }
+
+        var saveResult = await _transactionManager.SaveChangesAsync(
+            "location",
+            new { LocationId = location.Id.Value },
+            "Location with the same name or address already exists.",
+            cancellationToken);
+        if (saveResult.IsFailure)
+        {
+            _logger.LogWarning(
+                "Location creation failed while saving. ErrorType {ErrorType}. Errors: {@ErrorMessages}",
                 saveResult.Error.Type,
                 saveResult.Error.Messages);
 
@@ -85,8 +104,8 @@ public sealed class CreateLocationHandler
 
         _logger.LogInformation(
             "Location created successfully with id {LocationId}",
-            saveResult.Value.Id.Value);
+            location.Id.Value);
 
-        return saveResult.Value.Id.Value;
+        return location.Id.Value;
     }
 }

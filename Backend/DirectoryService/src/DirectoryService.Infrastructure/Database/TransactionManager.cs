@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Errors;
 using Microsoft.EntityFrameworkCore;
@@ -7,78 +8,51 @@ using Npgsql;
 
 namespace DirectoryService.Infrastructure.Database;
 
-public sealed class DbOperationExecutor
+public sealed class TransactionManager : ITransactionManager
 {
-    private readonly ILogger<DbOperationExecutor> _logger;
+    private readonly DirectoryServiceDbContext _dbContext;
+    private readonly ILogger<TransactionManager> _logger;
+    private readonly ILogger<TransactionScope> _scopeLogger;
 
-    public DbOperationExecutor(ILogger<DbOperationExecutor> logger)
+    public TransactionManager(
+        DirectoryServiceDbContext dbContext,
+        ILogger<TransactionManager> logger,
+        ILogger<TransactionScope> scopeLogger)
     {
+        _dbContext = dbContext;
         _logger = logger;
+        _scopeLogger = scopeLogger;
     }
 
-    public async Task<Result<TValue, Error>> ExecuteAsync<TValue>(
-        Func<CancellationToken, Task<TValue>> operation,
-        string operationName,
-        object? context,
-        CancellationToken cancellationToken)
+    public async Task<Result<ITransactionScope, Error>> BeginTransactionAsync(
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            return await operation(cancellationToken);
+            var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+            return new TransactionScope(transaction, _scopeLogger);
         }
         catch (OperationCanceledException)
         {
             throw;
         }
-        catch (Exception exception) when (exception is TimeoutException or NpgsqlException)
+        catch (Exception exception)
         {
-            _logger.LogError(
-                exception,
-                "Database operation failed while {OperationName}. Context {@Context}",
-                operationName,
-                context);
-
-            return DatabaseErrors.OperationFailed(operationName);
+            _logger.LogError(exception, "Failed to begin database transaction");
+            return DatabaseErrors.OperationFailed("begin database transaction");
         }
     }
 
-    public async Task<Result<TValue, Error>> ExecuteResultAsync<TValue>(
-        Func<CancellationToken, Task<Result<TValue, Error>>> operation,
-        string operationName,
-        object? context,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await operation(cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception exception) when (exception is TimeoutException or NpgsqlException)
-        {
-            _logger.LogError(
-                exception,
-                "Database operation failed while {OperationName}. Context {@Context}",
-                operationName,
-                context);
-
-            return DatabaseErrors.OperationFailed(operationName);
-        }
-    }
-
-    public async Task<Result<TEntity, Error>> ExecuteSaveAsync<TEntity>(
-        Func<CancellationToken, Task<TEntity>> operation,
-        Action detach,
+    public async Task<UnitResult<Error>> SaveChangesAsync(
         string entityName,
-        object? context,
-        CancellationToken cancellationToken,
-        string? uniqueViolationMessage = null)
+        object? context = null,
+        string? uniqueViolationMessage = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            return await operation(cancellationToken);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            return UnitResult.Success<Error>();
         }
         catch (OperationCanceledException)
         {
@@ -86,7 +60,7 @@ public sealed class DbOperationExecutor
         }
         catch (DbUpdateException exception)
         {
-            detach();
+            ClearChangeTracker();
 
             var error = MapDbUpdateException(exception, entityName, uniqueViolationMessage);
             var sqlState = (exception.InnerException as PostgresException)?.SqlState;
@@ -103,7 +77,7 @@ public sealed class DbOperationExecutor
         }
         catch (TimeoutException exception)
         {
-            detach();
+            ClearChangeTracker();
 
             _logger.LogError(
                 exception,
@@ -115,7 +89,7 @@ public sealed class DbOperationExecutor
         }
         catch (NpgsqlException exception)
         {
-            detach();
+            ClearChangeTracker();
 
             _logger.LogError(
                 exception,
@@ -124,6 +98,18 @@ public sealed class DbOperationExecutor
                 context);
 
             return DatabaseErrors.Unavailable($"save the {entityName}");
+        }
+        catch (Exception exception)
+        {
+            ClearChangeTracker();
+
+            _logger.LogError(
+                exception,
+                "Unexpected database error while saving {EntityName}. Context {@Context}",
+                entityName,
+                context);
+
+            return DatabaseErrors.SaveFailed(entityName);
         }
     }
 
@@ -139,5 +125,10 @@ public sealed class DbOperationExecutor
             postgresException,
             entityName,
             uniqueViolationMessage);
+    }
+
+    private void ClearChangeTracker()
+    {
+        _dbContext.ChangeTracker.Clear();
     }
 }
