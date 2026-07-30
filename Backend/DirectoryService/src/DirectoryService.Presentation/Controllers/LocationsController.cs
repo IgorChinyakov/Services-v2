@@ -1,5 +1,8 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Locations.Create;
+using DirectoryService.Application.Features.Locations.Get;
+using DirectoryService.Contracts.Common;
+using DirectoryService.Contracts.Locations;
 using DirectoryService.Contracts.Locations.Requests;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Presentation.ApiResponse;
@@ -14,14 +17,17 @@ namespace DirectoryService.Presentation.Controllers;
 public sealed class LocationsController : ControllerBase
 {
     private readonly ICommandHandler<CreateLocationCommand, Guid> _createLocationHandler;
+    private readonly IQueryHandler<GetLocationsQuery, PagedList<LocationDto>> _getLocationsHandler;
     private readonly ILogger<LocationsController> _logger;
 
     public LocationsController(
         ICommandHandler<CreateLocationCommand, Guid> createLocationHandler,
-        ILogger<LocationsController> logger)
+        ILogger<LocationsController> logger,
+        IQueryHandler<GetLocationsQuery, PagedList<LocationDto>> getLocationsHandler)
     {
         _createLocationHandler = createLocationHandler;
         _logger = logger;
+        _getLocationsHandler = getLocationsHandler;
     }
 
     [HttpPost]
@@ -47,5 +53,27 @@ public sealed class LocationsController : ControllerBase
         var result = await _createLocationHandler.Handle(command, cancellationToken);
 
         return result;
+    }
+
+    [HttpGet]
+    [ProducesResponseType<EndpointResult<PagedList<LocationDto>>>(StatusCodes.Status200OK)]
+    public async Task<EndpointResult<PagedList<LocationDto>>> FetchLocations(
+        [FromQuery] GetLocationsRequest request,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received get location request. TraceId {TraceId}",
+            HttpContext.TraceIdentifier);
+
+        var query = new GetLocationsQuery(
+            request.Page,
+            request.PageSize,
+            request.SortBy,
+            request.SortDirection,
+            request.DepartmentIds,
+            request.Search,
+            request.IsActive);
+
+        return await _getLocationsHandler.HandleAsync(query, cancellationToken);
     }
 }
