@@ -37,8 +37,7 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
 
             var departments = await connection.QueryAsync<TopDepartmentByPositionsDto>(command);
 
-            return Result.Success<IReadOnlyList<TopDepartmentByPositionsDto>, Error>(
-                departments.AsList());
+            return departments.AsList();
         }
         catch (OperationCanceledException)
         {
@@ -57,7 +56,18 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
 
     private static string BuildSql()
     {
-        // TODO: Return a query with Id, Name, Identifier and PositionsCount columns.
-        throw new NotImplementedException("Implement the top departments Dapper query.");
+        return """
+               select d.id                  as Id,
+                      d.name                as Name,
+                      d.identifier          as Identifier,
+                      count(p.id) as PositionsCount
+               from departments as d
+                        left join department_positions as dp on d.id = dp.department_id
+                        left join positions p on p.id = dp.position_id and p.is_active = true
+               where d.is_active = true
+               group by d.id
+               order by PositionsCount desc, d.id
+               limit 5
+               """;
     }
 }

@@ -4,12 +4,14 @@ using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Database;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using DepartmentIdentifier = DirectoryService.Domain.ValueObjects.Department.Identifier;
 using DepartmentName = DirectoryService.Domain.ValueObjects.Department.Name;
 using LocationAddress = DirectoryService.Domain.ValueObjects.Location.Address;
 using LocationName = DirectoryService.Domain.ValueObjects.Location.Name;
 using LocationTimeZone = DirectoryService.Domain.ValueObjects.Location.LocationTimeZone;
+using PositionName = DirectoryService.Domain.ValueObjects.Position.Name;
 
 namespace DirectoryService.IntegrationTests;
 
@@ -98,6 +100,19 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
         });
     }
 
+    protected Task<Result<TResponse, Error>> ExecuteQueryAsync<TQuery, TResponse>(
+        TQuery query,
+        CancellationToken cancellationToken = default)
+        where TQuery : IQuery
+    {
+        return ExecuteScopedAsync(services =>
+        {
+            var handler = services.GetRequiredService<IQueryHandler<TQuery, TResponse>>();
+
+            return handler.HandleAsync(query, cancellationToken);
+        });
+    }
+
     protected async Task<LocationId> SeedLocationAsync(string? name = null)
     {
         return await ExecuteDbContextAsync(async dbContext =>
@@ -146,6 +161,33 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
             await dbContext.SaveChangesAsync();
 
             return department.Id;
+        });
+    }
+
+    protected async Task<PositionId> SeedPositionAsync(
+        string name,
+        IReadOnlyCollection<DepartmentId> departmentIds,
+        bool isActive = true)
+    {
+        return await ExecuteDbContextAsync(async dbContext =>
+        {
+            var position = new Position(
+                PositionName.Create(name).Value,
+                null,
+                departmentIds);
+
+            await dbContext.Positions.AddAsync(position);
+            await dbContext.SaveChangesAsync();
+
+            if (!isActive)
+            {
+                await dbContext.Positions
+                    .Where(item => item.Id == position.Id)
+                    .ExecuteUpdateAsync(setters =>
+                        setters.SetProperty(item => item.IsActive, false));
+            }
+
+            return position.Id;
         });
     }
 }
