@@ -1,7 +1,11 @@
+using DirectoryService.Infrastructure.Database;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace DirectoryService.Infrastructure.Migrations;
 
+[DbContext(typeof(DirectoryServiceDbContext))]
+[Migration("20260616190000_MakeLocationNameUnique")]
 public partial class MakeLocationNameUnique : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

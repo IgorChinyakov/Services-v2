@@ -75,11 +75,17 @@ try
 
     app.Run();
 }
-catch (Exception exception)
+catch (Exception exception) when (exception.GetType().Name != "HostAbortedException")
 {
     Log.Fatal(exception, "DirectoryService terminated unexpectedly");
+    throw;
 }
 finally
 {
     Log.CloseAndFlush();
+}
+
+namespace DirectoryService.Api
+{
+    public partial class Program;
 }

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace DirectoryService.Infrastructure.Extensions;
 
@@ -16,15 +17,24 @@ public static class DependencyInjectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        services.AddDbContextPool<DirectoryServiceDbContext>((sp, options) =>
+        services.AddSingleton(_ =>
         {
             string connectionString = configuration.GetSection(Constants.DATABASE).Value ??
-                                       throw new ArgumentNullException(Constants.DATABASE);
+                                      throw new ArgumentNullException(Constants.DATABASE);
 
+            var dataSourceBuilder = new NpgsqlSlimDataSourceBuilder(connectionString);
+            dataSourceBuilder.EnableLTree();
+
+            return dataSourceBuilder.Build();
+        });
+
+        services.AddDbContext<DirectoryServiceDbContext>((sp, options) =>
+        {
             var environment = sp.GetRequiredService<IHostEnvironment>();
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+            var dataSource = sp.GetRequiredService<NpgsqlDataSource>();
 
-            options.UseNpgsql(connectionString);
+            options.UseNpgsql(dataSource);
 
             if (environment.IsDevelopment())
             {
@@ -38,6 +48,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ITransactionManager, TransactionManager>();
         services.AddScoped<ILocationRepository, LocationRepository>();
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+        services.AddScoped<IDepartmentQueryRepository, DepartmentQueryRepository>();
         services.AddScoped<IPositionRepository, PositionRepository>();
 
         return services;

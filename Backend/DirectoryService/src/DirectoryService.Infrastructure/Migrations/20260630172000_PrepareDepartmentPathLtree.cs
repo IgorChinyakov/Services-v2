@@ -1,7 +1,11 @@
+using DirectoryService.Infrastructure.Database;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace DirectoryService.Infrastructure.Migrations;
 
+[DbContext(typeof(DirectoryServiceDbContext))]
+[Migration("20260630172000_PrepareDepartmentPathLtree")]
 public partial class PrepareDepartmentPathLtree : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)

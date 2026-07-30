@@ -59,16 +59,19 @@ public sealed class PositionRepository : IPositionRepository
         try
         {
             var requestedDepartmentIds = departmentIds.Distinct().ToArray();
+            var missingDepartmentIds = new List<DepartmentId>();
 
-            var existingDepartmentIds = await _dbContext.Departments
-                .AsNoTracking()
-                .Where(department => department.IsActive && requestedDepartmentIds.Contains(department.Id))
-                .Select(department => department.Id)
-                .ToArrayAsync(cancellationToken);
+            foreach (var departmentId in requestedDepartmentIds)
+            {
+                var exists = await _dbContext.Departments
+                    .AsNoTracking()
+                    .AnyAsync(
+                        department => department.IsActive && department.Id == departmentId,
+                        cancellationToken);
 
-            IReadOnlyCollection<DepartmentId> missingDepartmentIds = requestedDepartmentIds
-                .Except(existingDepartmentIds)
-                .ToArray();
+                if (!exists)
+                    missingDepartmentIds.Add(departmentId);
+            }
 
             return Result.Success<IReadOnlyCollection<DepartmentId>, Error>(missingDepartmentIds);
         }

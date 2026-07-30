@@ -94,16 +94,19 @@ public sealed class DepartmentRepository : IDepartmentRepository
         try
         {
             var requestedLocationIds = locationIds.Distinct().ToArray();
+            var missingLocationIds = new List<LocationId>();
 
-            var existingLocationIds = await _dbContext.Locations
-                .AsNoTracking()
-                .Where(location => location.IsActive && requestedLocationIds.Contains(location.Id))
-                .Select(location => location.Id)
-                .ToArrayAsync(cancellationToken);
+            foreach (var locationId in requestedLocationIds)
+            {
+                var exists = await _dbContext.Locations
+                    .AsNoTracking()
+                    .AnyAsync(
+                        location => location.IsActive && location.Id == locationId,
+                        cancellationToken);
 
-            IReadOnlyCollection<LocationId> missingLocationIds = requestedLocationIds
-                .Except(existingLocationIds)
-                .ToArray();
+                if (!exists)
+                    missingLocationIds.Add(locationId);
+            }
 
             return Result.Success<IReadOnlyCollection<LocationId>, Error>(missingLocationIds);
         }
