@@ -1,7 +1,9 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.Create;
+using DirectoryService.Application.Features.Departments.GetTopByPositions;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
+using DirectoryService.Contracts.Departments;
 using DirectoryService.Contracts.Departments.Requests;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Presentation.ApiResponse;
@@ -16,17 +18,25 @@ public sealed class DepartmentsController : ControllerBase
     private readonly ICommandHandler<CreateDepartmentCommand, Guid> _createDepartmentHandler;
     private readonly ICommandHandler<UpdateDepartmentLocationsCommand> _updateDepartmentLocationsHandler;
     private readonly ICommandHandler<UpdateDepartmentParentCommand> _updateDepartmentParentHandler;
+    private readonly IQueryHandler<
+        GetTopDepartmentsByPositionsQuery,
+        IReadOnlyList<TopDepartmentByPositionsDto>> _getTopDepartmentsByPositionsHandler;
+
     private readonly ILogger<DepartmentsController> _logger;
 
     public DepartmentsController(
         ICommandHandler<CreateDepartmentCommand, Guid> createDepartmentHandler,
         ICommandHandler<UpdateDepartmentLocationsCommand> updateDepartmentLocationsHandler,
         ICommandHandler<UpdateDepartmentParentCommand> updateDepartmentParentHandler,
+        IQueryHandler<
+            GetTopDepartmentsByPositionsQuery,
+            IReadOnlyList<TopDepartmentByPositionsDto>> getTopDepartmentsByPositionsHandler,
         ILogger<DepartmentsController> logger)
     {
         _createDepartmentHandler = createDepartmentHandler;
         _updateDepartmentLocationsHandler = updateDepartmentLocationsHandler;
         _updateDepartmentParentHandler = updateDepartmentParentHandler;
+        _getTopDepartmentsByPositionsHandler = getTopDepartmentsByPositionsHandler;
         _logger = logger;
     }
 
@@ -55,6 +65,22 @@ public sealed class DepartmentsController : ControllerBase
         var result = await _createDepartmentHandler.Handle(command, cancellationToken);
 
         return result;
+    }
+
+    [HttpGet("top-positions")]
+    [ProducesResponseType<EndpointResult<IReadOnlyList<TopDepartmentByPositionsDto>>>(
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<IReadOnlyList<TopDepartmentByPositionsDto>>> GetTopByPositionsAsync(
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received get top departments by positions request. TraceId {TraceId}",
+            HttpContext.TraceIdentifier);
+
+        var query = new GetTopDepartmentsByPositionsQuery();
+
+        return await _getTopDepartmentsByPositionsHandler.HandleAsync(query, cancellationToken);
     }
 
     [HttpPut("{departmentId:guid}/locations")]
