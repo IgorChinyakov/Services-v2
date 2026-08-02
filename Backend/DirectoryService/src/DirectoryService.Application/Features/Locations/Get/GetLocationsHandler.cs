@@ -14,16 +14,16 @@ public class GetLocationsHandler : IQueryHandler<GetLocationsQuery, PagedList<Lo
 {
     private readonly ILogger<GetLocationsHandler> _logger;
     private readonly IValidator<GetLocationsQuery> _validator;
-    private readonly ILocationRepository _locationRepository;
+    private readonly ILocationQueryRepository _locationQueryRepository;
 
     public GetLocationsHandler(
         ILogger<GetLocationsHandler> logger,
         IValidator<GetLocationsQuery> validator,
-        ILocationRepository locationRepository)
+        ILocationQueryRepository locationQueryRepository)
     {
         _logger = logger;
         _validator = validator;
-        _locationRepository = locationRepository;
+        _locationQueryRepository = locationQueryRepository;
     }
 
     public async Task<Result<PagedList<LocationDto>, Error>> HandleAsync(
@@ -44,6 +44,6 @@ public class GetLocationsHandler : IQueryHandler<GetLocationsQuery, PagedList<Lo
             return validationResult.ToError();
         }
 
-        return await _locationRepository.GetFilteredWithPaginationAsync(query, cancellationToken);
+        return await _locationQueryRepository.GetFilteredWithPaginationAsync(query, cancellationToken);
     }
 }

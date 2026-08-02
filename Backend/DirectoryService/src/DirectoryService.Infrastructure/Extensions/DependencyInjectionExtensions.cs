@@ -47,6 +47,7 @@ public static class DependencyInjectionExtensions
 
         services.AddScoped<ITransactionManager, TransactionManager>();
         services.AddScoped<ILocationRepository, LocationRepository>();
+        services.AddScoped<ILocationQueryRepository, LocationQueryRepository>();
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         services.AddScoped<IDepartmentQueryRepository, DepartmentQueryRepository>();
         services.AddScoped<IPositionRepository, PositionRepository>();
