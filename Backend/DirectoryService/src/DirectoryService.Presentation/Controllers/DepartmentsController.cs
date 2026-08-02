@@ -1,8 +1,11 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.Create;
+using DirectoryService.Application.Features.Departments.GetChildren;
+using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
+using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
 using DirectoryService.Contracts.Departments.Requests;
 using DirectoryService.Domain.Shared;
@@ -19,6 +22,14 @@ public sealed class DepartmentsController : ControllerBase
     private readonly ICommandHandler<UpdateDepartmentLocationsCommand> _updateDepartmentLocationsHandler;
     private readonly ICommandHandler<UpdateDepartmentParentCommand> _updateDepartmentParentHandler;
     private readonly IQueryHandler<
+        GetRootDepartmentsQuery,
+        PagedList<RootDepartmentDto>> _getRootDepartmentsHandler;
+
+    private readonly IQueryHandler<
+        GetDepartmentChildrenQuery,
+        PagedList<DepartmentNodeDto>> _getDepartmentChildrenHandler;
+
+    private readonly IQueryHandler<
         GetTopDepartmentsByPositionsQuery,
         IReadOnlyList<TopDepartmentByPositionsDto>> _getTopDepartmentsByPositionsHandler;
 
@@ -29,6 +40,12 @@ public sealed class DepartmentsController : ControllerBase
         ICommandHandler<UpdateDepartmentLocationsCommand> updateDepartmentLocationsHandler,
         ICommandHandler<UpdateDepartmentParentCommand> updateDepartmentParentHandler,
         IQueryHandler<
+            GetRootDepartmentsQuery,
+            PagedList<RootDepartmentDto>> getRootDepartmentsHandler,
+        IQueryHandler<
+            GetDepartmentChildrenQuery,
+            PagedList<DepartmentNodeDto>> getDepartmentChildrenHandler,
+        IQueryHandler<
             GetTopDepartmentsByPositionsQuery,
             IReadOnlyList<TopDepartmentByPositionsDto>> getTopDepartmentsByPositionsHandler,
         ILogger<DepartmentsController> logger)
@@ -36,6 +53,8 @@ public sealed class DepartmentsController : ControllerBase
         _createDepartmentHandler = createDepartmentHandler;
         _updateDepartmentLocationsHandler = updateDepartmentLocationsHandler;
         _updateDepartmentParentHandler = updateDepartmentParentHandler;
+        _getRootDepartmentsHandler = getRootDepartmentsHandler;
+        _getDepartmentChildrenHandler = getDepartmentChildrenHandler;
         _getTopDepartmentsByPositionsHandler = getTopDepartmentsByPositionsHandler;
         _logger = logger;
     }
@@ -65,6 +84,53 @@ public sealed class DepartmentsController : ControllerBase
         var result = await _createDepartmentHandler.Handle(command, cancellationToken);
 
         return result;
+    }
+
+    [HttpGet("roots")]
+    [ProducesResponseType<EndpointResult<PagedList<RootDepartmentDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<PagedList<RootDepartmentDto>>> GetRootsAsync(
+        [FromQuery] GetRootDepartmentsRequest request,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received get root departments request. Page {Page}. Size {Size}. Prefetch {Prefetch}. TraceId {TraceId}",
+            request.Page,
+            request.Size,
+            request.Prefetch,
+            HttpContext.TraceIdentifier);
+
+        var query = new GetRootDepartmentsQuery(
+            request.Page,
+            request.Size,
+            request.Prefetch);
+
+        return await _getRootDepartmentsHandler.HandleAsync(query, cancellationToken);
+    }
+
+    [HttpGet("{parentId:guid}/children")]
+    [ProducesResponseType<EndpointResult<PagedList<DepartmentNodeDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<PagedList<DepartmentNodeDto>>> GetChildrenAsync(
+        Guid parentId,
+        [FromQuery] GetDepartmentChildrenRequest request,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received get department children request. ParentId {ParentId}. Page {Page}. Size {Size}. TraceId {TraceId}",
+            parentId,
+            request.Page,
+            request.Size,
+            HttpContext.TraceIdentifier);
+
+        var query = new GetDepartmentChildrenQuery(
+            parentId,
+            request.Page,
+            request.Size);
+
+        return await _getDepartmentChildrenHandler.HandleAsync(query, cancellationToken);
     }
 
     [HttpGet("top-positions")]

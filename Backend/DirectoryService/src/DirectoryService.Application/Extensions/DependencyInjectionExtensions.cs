@@ -1,5 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.Create;
+using DirectoryService.Application.Features.Departments.GetChildren;
+using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
@@ -24,6 +26,12 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ICommandHandler<UpdateDepartmentParentCommand>, UpdateDepartmentParentHandler>();
         services.AddScoped<ICommandHandler<CreatePositionCommand, Guid>, CreatePositionHandler>();
         services.AddScoped<IQueryHandler<GetLocationsQuery, PagedList<LocationDto>>, GetLocationsHandler>();
+        services.AddScoped<
+            IQueryHandler<GetRootDepartmentsQuery, PagedList<RootDepartmentDto>>,
+            GetRootDepartmentsHandler>();
+        services.AddScoped<
+            IQueryHandler<GetDepartmentChildrenQuery, PagedList<DepartmentNodeDto>>,
+            GetDepartmentChildrenHandler>();
         services.AddScoped<
             IQueryHandler<GetTopDepartmentsByPositionsQuery, IReadOnlyList<TopDepartmentByPositionsDto>>,
             GetTopDepartmentsByPositionsHandler>();
