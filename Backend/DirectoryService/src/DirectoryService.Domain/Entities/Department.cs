@@ -33,6 +33,8 @@ public class Department : Entity<DepartmentId>
 
     public DateTime UpdatedAt { get; private set; }
 
+    public DateTime? DeletedAt { get; private set; }
+
     public IReadOnlyList<Department> Children => _children;
 
     public IReadOnlyList<DepartmentPosition> DepartmentPositions => _departmentPositions;
@@ -67,5 +69,23 @@ public class Department : Entity<DepartmentId>
     public void AddLocation(LocationId locationId)
     {
         _departmentLocations.Add(new DepartmentLocation(Id, locationId));
+    }
+
+    public void SoftDelete()
+    {
+        var deletedAtUtc = DateTime.UtcNow;
+
+        IsActive = false;
+        DeletedAt = deletedAtUtc;
+        UpdatedAt = deletedAtUtc;
+    }
+
+    public void MarkAsDeleted()
+    {
+        var pathParts = Path.Split('.');
+        pathParts[^1] = $"deleted_{pathParts[^1]}";
+
+        Path = string.Join('.', pathParts);
+        UpdatedAt = DateTime.UtcNow;
     }
 }

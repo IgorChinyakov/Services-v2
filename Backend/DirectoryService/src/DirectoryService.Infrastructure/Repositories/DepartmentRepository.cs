@@ -331,6 +331,182 @@ public sealed class DepartmentRepository : IDepartmentRepository
         }
     }
 
+    public async Task<Result<DateTime, Error>> SoftDeleteAsync(
+        DepartmentId departmentId,
+        CancellationToken cancellationToken)
+    {
+        var transactionScopeResult = await _transactionManager.BeginTransactionAsync(cancellationToken);
+        if (transactionScopeResult.IsFailure)
+            return transactionScopeResult.Error;
+
+        await using var transactionScope = transactionScopeResult.Value;
+
+        try
+        {
+            // добавил order by по id для при блокировке для избежания deadlock, актуально и для блокировок, которые ниже
+            var lockedDepartmentId = await _dbContext.Database.SqlQuery<Guid>(
+                $"""
+                    select d.id as "Value"
+                    from departments d
+                    where d.id = {departmentId.Value} and
+                          d.is_active = true
+                    for update
+                 """).SingleOrDefaultAsync(cancellationToken);
+
+            if (lockedDepartmentId == Guid.Empty)
+            {
+                var transactionRollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                if (transactionRollbackResult.IsFailure)
+                    return transactionRollbackResult.Error;
+
+                return GeneralErrors.NotFound("Department is not found.", nameof(departmentId));
+            }
+
+            var lockedDepartment = await _dbContext.Departments
+                .FirstOrDefaultAsync(d => d.Id == departmentId && d.IsActive, cancellationToken);
+
+            if (lockedDepartment is null)
+            {
+                var transactionRollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                if (transactionRollbackResult.IsFailure)
+                    return transactionRollbackResult.Error;
+
+                return GeneralErrors.NotFound("Department is not found.", nameof(departmentId));
+            }
+
+            var oldPath = lockedDepartment.Path;
+
+            lockedDepartment.SoftDelete();
+
+            lockedDepartment.MarkAsDeleted();
+
+            var newPath = lockedDepartment.Path;
+
+            _ = await _dbContext.Database.SqlQuery<Guid>(
+                $"""
+                    select
+                        d.id AS "Value"
+                    from departments d
+                    where d.path <@ {oldPath}::ltree
+                    order by d.id
+                    for update
+                """).ToListAsync(cancellationToken);
+
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                 UPDATE departments
+                 SET path =
+                         {newPath}::ltree ||
+                         subpath(path, nlevel({oldPath}::ltree)),
+                     updated_at = NOW()
+                 WHERE path <@ {oldPath}::ltree
+                   AND id <> {departmentId.Value}
+                 """,
+                cancellationToken);
+
+            _ = await _dbContext.Database.SqlQuery<Guid>(
+                $"""
+                     select
+                         l.id AS "Value"
+                     from locations l
+                     join department_locations dl on dl.location_id = l.id
+                     where dl.department_id = {departmentId.Value}
+                     order by l.id
+                     for update of l
+                 """).ToListAsync(cancellationToken);
+
+            _ = await _dbContext.Database.SqlQuery<Guid>(
+                $"""
+                     select
+                         p.id AS "Value"
+                     from positions p
+                     join department_positions dp on dp.position_id = p.id
+                     where dp.department_id = {departmentId.Value}
+                     order by p.id
+                     for update of p
+                 """).ToListAsync(cancellationToken);
+
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                 UPDATE locations
+                 SET is_active = FALSE,
+                     updated_at = NOW()
+                 WHERE id IN (
+                     SELECT dl.location_id
+                     FROM department_locations dl
+                     WHERE dl.department_id = {departmentId.Value}
+                       AND NOT EXISTS (
+                           SELECT 1
+                           FROM department_locations other_dl
+                           JOIN departments other_d
+                             ON other_d.id = other_dl.department_id
+                           WHERE other_dl.location_id = dl.location_id
+                             AND other_dl.department_id <> {departmentId.Value}
+                             AND other_d.is_active = TRUE
+                       )
+                 )
+                 """,
+                cancellationToken);
+
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                 UPDATE positions
+                 SET is_active = FALSE,
+                     updated_at = NOW()
+                 WHERE id IN (
+                     SELECT dp.position_id
+                     FROM department_positions dp
+                     WHERE dp.department_id = {departmentId.Value}
+                       AND NOT EXISTS (
+                           SELECT 1
+                           FROM department_positions other_dp
+                           JOIN departments other_d
+                             ON other_d.id = other_dp.department_id
+                           WHERE other_dp.position_id = dp.position_id
+                             AND other_dp.department_id <> {departmentId.Value}
+                             AND other_d.is_active = TRUE
+                       )
+                 )
+                 """,
+                cancellationToken);
+
+            var saveChangesResult = await _transactionManager.SaveChangesAsync(
+                nameof(Department),
+                cancellationToken: cancellationToken);
+            if (saveChangesResult.IsFailure)
+            {
+                var transactionRollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                if (transactionRollbackResult.IsFailure)
+                    return transactionRollbackResult.Error;
+
+                return saveChangesResult.Error;
+            }
+
+            var commitResult = await transactionScope.CommitAsync(cancellationToken);
+            if (commitResult.IsFailure)
+                return commitResult.Error;
+
+            return lockedDepartment.DeletedAt!.Value;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(
+                e,
+                "Failed to soft delete department. DepartmentId {DepartmentId}",
+                departmentId.Value);
+
+            var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+            if (rollbackResult.IsFailure)
+                return rollbackResult.Error;
+
+            return DatabaseErrors.OperationFailed("soft delete department");
+        }
+    }
+
     public async Task<Result<Department, Error>> AddAsync(
         Department department,
         CancellationToken cancellationToken)

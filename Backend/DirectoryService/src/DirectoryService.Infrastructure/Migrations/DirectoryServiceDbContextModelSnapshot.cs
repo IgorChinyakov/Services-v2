@@ -38,6 +38,10 @@ namespace DirectoryService.Infrastructure.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("depth");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");

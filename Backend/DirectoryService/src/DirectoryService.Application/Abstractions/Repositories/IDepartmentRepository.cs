@@ -32,4 +32,8 @@ public interface IDepartmentRepository
     Task<Result<Department, Error>> AddAsync(
         Department department,
         CancellationToken cancellationToken);
+
+    Task<Result<DateTime, Error>> SoftDeleteAsync(
+        DepartmentId departmentId,
+        CancellationToken cancellationToken);
 }
