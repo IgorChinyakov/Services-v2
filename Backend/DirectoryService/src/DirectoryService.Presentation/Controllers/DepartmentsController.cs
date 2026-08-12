@@ -3,6 +3,7 @@ using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.GetChildren;
 using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
+using DirectoryService.Application.Features.Departments.SoftDelete;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
 using DirectoryService.Contracts.Common;
@@ -21,6 +22,7 @@ public sealed class DepartmentsController : ControllerBase
     private readonly ICommandHandler<CreateDepartmentCommand, Guid> _createDepartmentHandler;
     private readonly ICommandHandler<UpdateDepartmentLocationsCommand> _updateDepartmentLocationsHandler;
     private readonly ICommandHandler<UpdateDepartmentParentCommand> _updateDepartmentParentHandler;
+    private readonly ICommandHandler<SoftDeleteDepartmentCommand> _softDeleteDepartmentHandler;
     private readonly IQueryHandler<
         GetRootDepartmentsQuery,
         PagedList<RootDepartmentDto>> _getRootDepartmentsHandler;
@@ -39,6 +41,7 @@ public sealed class DepartmentsController : ControllerBase
         ICommandHandler<CreateDepartmentCommand, Guid> createDepartmentHandler,
         ICommandHandler<UpdateDepartmentLocationsCommand> updateDepartmentLocationsHandler,
         ICommandHandler<UpdateDepartmentParentCommand> updateDepartmentParentHandler,
+        ICommandHandler<SoftDeleteDepartmentCommand> softDeleteDepartmentHandler,
         IQueryHandler<
             GetRootDepartmentsQuery,
             PagedList<RootDepartmentDto>> getRootDepartmentsHandler,
@@ -53,6 +56,7 @@ public sealed class DepartmentsController : ControllerBase
         _createDepartmentHandler = createDepartmentHandler;
         _updateDepartmentLocationsHandler = updateDepartmentLocationsHandler;
         _updateDepartmentParentHandler = updateDepartmentParentHandler;
+        _softDeleteDepartmentHandler = softDeleteDepartmentHandler;
         _getRootDepartmentsHandler = getRootDepartmentsHandler;
         _getDepartmentChildrenHandler = getDepartmentChildrenHandler;
         _getTopDepartmentsByPositionsHandler = getTopDepartmentsByPositionsHandler;
@@ -199,5 +203,24 @@ public sealed class DepartmentsController : ControllerBase
         var result = await _updateDepartmentParentHandler.Handle(command, cancellationToken);
 
         return result;
+    }
+
+    [HttpDelete("{departmentId:guid}")]
+    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> SoftDeleteAsync(
+        Guid departmentId,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received department soft delete request. DepartmentId {DepartmentId}. TraceId {TraceId}",
+            departmentId,
+            HttpContext.TraceIdentifier);
+
+        var command = new SoftDeleteDepartmentCommand(departmentId);
+
+        return await _softDeleteDepartmentHandler.Handle(command, cancellationToken);
     }
 }
