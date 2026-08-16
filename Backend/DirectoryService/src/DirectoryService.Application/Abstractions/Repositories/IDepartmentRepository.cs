@@ -36,4 +36,9 @@ public interface IDepartmentRepository
     Task<Result<DateTime, Error>> SoftDeleteAsync(
         DepartmentId departmentId,
         CancellationToken cancellationToken);
+
+    Task<Result<int, Error>> CleanupInactiveAsync(
+        DateTime deletedBeforeUtc,
+        int batchSize,
+        CancellationToken cancellationToken);
 }

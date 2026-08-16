@@ -46,6 +46,7 @@ public static class DependencyInjectionExtensions
 
         services.AddApplication();
         services.AddDatabase(configuration);
+        services.AddDepartmentCleanup(configuration);
 
         return services;
     }

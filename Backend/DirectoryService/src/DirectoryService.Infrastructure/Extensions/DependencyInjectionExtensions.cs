@@ -23,6 +23,7 @@ public static class DependencyInjectionExtensions
                                       throw new ArgumentNullException(Constants.DATABASE);
 
             var dataSourceBuilder = new NpgsqlSlimDataSourceBuilder(connectionString);
+            dataSourceBuilder.EnableArrays();
             dataSourceBuilder.EnableLTree();
 
             return dataSourceBuilder.Build();

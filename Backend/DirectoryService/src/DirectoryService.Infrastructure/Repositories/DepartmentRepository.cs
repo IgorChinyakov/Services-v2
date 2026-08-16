@@ -384,13 +384,13 @@ public sealed class DepartmentRepository : IDepartmentRepository
 
             _ = await _dbContext.Database.SqlQuery<Guid>(
                 $"""
-                    select
-                        d.id AS "Value"
-                    from departments d
-                    where d.path <@ {oldPath}::ltree
-                    order by d.id
-                    for update
-                """).ToListAsync(cancellationToken);
+                     select
+                         d.id AS "Value"
+                     from departments d
+                     where d.path <@ {oldPath}::ltree
+                     order by d.id
+                     for update
+                 """).ToListAsync(cancellationToken);
 
             await _dbContext.Database.ExecuteSqlInterpolatedAsync(
                 $"""
@@ -507,6 +507,119 @@ public sealed class DepartmentRepository : IDepartmentRepository
         }
     }
 
+    public async Task<Result<int, Error>> CleanupInactiveAsync(
+        DateTime deletedBeforeUtc,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        var transactionScopeResult = await _transactionManager.BeginTransactionAsync(cancellationToken);
+        if (transactionScopeResult.IsFailure)
+            return transactionScopeResult.Error;
+
+        await using var transactionScope = transactionScopeResult.Value;
+
+        try
+        {
+            var lockedSoftDeletedDepartments = await _dbContext.Database.SqlQuery<DepartmentCleanUpInfo>(
+                $"""
+                 select
+                     d.id as "Id",
+                     d.parent_id as "ParentId",
+                     d.path::text as "Path",
+                     d.depth As "Depth"
+                 from departments d
+                 where d.is_Active = false
+                   and d.deleted_at < {deletedBeforeUtc}
+                 order by d.depth desc, d.deleted_at, d.id
+                 limit {batchSize}
+                 for update skip locked
+                 """).ToListAsync(cancellationToken);
+
+            if (lockedSoftDeletedDepartments.Count == 0)
+            {
+                var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                if (rollbackResult.IsFailure)
+                    return rollbackResult.Error;
+
+                return 0;
+            }
+
+            var cleanupPaths = lockedSoftDeletedDepartments
+                .Select(l => l.Path)
+                .Distinct()
+                .ToArray();
+
+            _ = await _dbContext.Database.SqlQuery<Guid>(
+                $"""
+                 SELECT d.id AS "Value"
+                 FROM departments AS d
+                 WHERE EXISTS (
+                     select 1
+                     from unnest({cleanupPaths}::text[]) as cleanup(path)
+                     where d.path <@ cleanup.Path::ltree
+                 )
+                 ORDER BY d.id
+                 FOR UPDATE OF d
+                 """).ToListAsync(cancellationToken);
+
+            foreach (var lockedDepartment in lockedSoftDeletedDepartments)
+            {
+                var path = lockedDepartment.Path;
+
+                var newPathElements = lockedDepartment.Path.Split('.');
+                var newPath = string.Join('.', newPathElements[..^1]);
+
+                _ = await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                    $"""
+                     UPDATE departments
+                     SET
+                         parent_id = CASE
+                            WHEN parent_id = {lockedDepartment.Id}
+                            THEN {lockedDepartment.ParentId}
+                            ELSE parent_id
+                        END,
+                        path = {newPath}::ltree || subpath(path, nlevel({path}::ltree)),
+                        updated_at = now(),
+                        depth = (depth - 1)::smallint
+                     WHERE path <@ {path}::ltree and id <> {lockedDepartment.Id}
+                     """, cancellationToken);
+            }
+
+            var departmentIds = lockedSoftDeletedDepartments
+                .Select(d => d.Id)
+                .ToArray();
+
+            var deletedDepartmentsCount = await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                 DELETE FROM departments
+                 WHERE id = ANY({departmentIds})
+                 """,
+                cancellationToken);
+
+            var commitResult = await transactionScope.CommitAsync(cancellationToken);
+            if (commitResult.IsFailure)
+                return commitResult.Error;
+
+            return deletedDepartmentsCount;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(
+                e,
+                "Failed to clean up soft deleted departments.");
+
+            var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+            if (rollbackResult.IsFailure)
+                return rollbackResult.Error;
+
+            return DatabaseErrors.OperationFailed("clean up inactive departments");
+        }
+    }
+
     public async Task<Result<Department, Error>> AddAsync(
         Department department,
         CancellationToken cancellationToken)
@@ -528,4 +641,10 @@ public sealed class DepartmentRepository : IDepartmentRepository
         string Path,
         short Depth,
         bool IsActive);
+
+    private sealed record DepartmentCleanUpInfo(
+        Guid Id,
+        Guid? ParentId,
+        string Path,
+        short Depth);
 }

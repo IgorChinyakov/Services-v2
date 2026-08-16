@@ -1,4 +1,5 @@
 using DirectoryService.Application.Abstractions.Handlers;
+using DirectoryService.Application.Features.Departments.CleanupInactive;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.GetChildren;
 using DirectoryService.Application.Features.Departments.GetRoots;
@@ -27,7 +28,9 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ICommandHandler<UpdateDepartmentParentCommand>, UpdateDepartmentParentHandler>();
         services.AddScoped<ICommandHandler<SoftDeleteDepartmentCommand>, SoftDeleteDepartmentHandler>();
         services.AddScoped<ICommandHandler<CreatePositionCommand, Guid>, CreatePositionHandler>();
-        services.AddScoped<ICommandHandler<SoftDeleteDepartmentCommand>, SoftDeleteDepartmentHandler>();
+        services.AddScoped<
+            ICommandHandler<CleanupInactiveDepartmentsCommand, int>,
+            CleanupInactiveDepartmentsHandler>();
         services.AddScoped<IQueryHandler<GetLocationsQuery, PagedList<LocationDto>>, GetLocationsHandler>();
         services.AddScoped<
             IQueryHandler<GetRootDepartmentsQuery, PagedList<RootDepartmentDto>>,

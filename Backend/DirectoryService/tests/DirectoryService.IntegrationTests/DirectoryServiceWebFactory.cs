@@ -74,6 +74,7 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
             services.AddSingleton(_ =>
             {
                 var dataSourceBuilder = new NpgsqlSlimDataSourceBuilder(_postgresContainer.GetConnectionString());
+                dataSourceBuilder.EnableArrays();
                 dataSourceBuilder.EnableLTree();
 
                 return dataSourceBuilder.Build();
