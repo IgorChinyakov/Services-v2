@@ -1,6 +1,44 @@
-﻿version: "3.9"
+﻿services:
+  directory-service:
+    container_name: directory_service_api
+    image: directory-service:local
 
-services:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    restart: unless-stopped
+
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+
+      Postgres__ConnectionString: >-
+        Host=postgres;
+        Port=5432;
+        Database=postgres;
+        Username=postgres;
+        Password=postgres
+
+      Seq__ServerUrl: http://seq:5341
+
+      Redis__ConnectionString: redis:6379
+
+      DepartmentCleanup__Enabled: "true"
+      DepartmentCleanup__CronSchedule: "0 0 2 * * ?"
+      DepartmentCleanup__RetentionDays: "30"
+      DepartmentCleanup__BatchSize: "100"
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seq:
+        condition: service_started
+      redis:
+        condition: service_healthy
   postgres:
     image: postgres:16
     container_name: directory_service_db
@@ -8,10 +46,17 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
     ports:
       - "5438:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
   seq:
     image: datalust/seq:latest
@@ -26,6 +71,22 @@ services:
     volumes:
       - seq_data:/data
 
+  redis:
+    image: redis:7.4-alpine
+    container_name: directory_service_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
   postgres_data:
   seq_data:
+  redis_data:

@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Cache;
 using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
@@ -18,17 +19,20 @@ public sealed class CreateLocationHandler
     private readonly ITransactionManager _transactionManager;
     private readonly IValidator<CreateLocationCommand> _validator;
     private readonly ILogger<CreateLocationHandler> _logger;
+    private readonly ICacheInvalidator _cacheInvalidator;
 
     public CreateLocationHandler(
         ILocationRepository locationRepository,
         ITransactionManager transactionManager,
         IValidator<CreateLocationCommand> validator,
-        ILogger<CreateLocationHandler> logger)
+        ILogger<CreateLocationHandler> logger,
+        ICacheInvalidator cacheInvalidator)
     {
         _locationRepository = locationRepository;
         _transactionManager = transactionManager;
         _validator = validator;
         _logger = logger;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<Result<Guid, Error>> Handle(
@@ -105,6 +109,8 @@ public sealed class CreateLocationHandler
         _logger.LogInformation(
             "Location created successfully with id {LocationId}",
             location.Id.Value);
+
+        await _cacheInvalidator.InvalidateAsync([CacheConstants.LOCATIONS_CACHE_TAG]);
 
         return location.Id.Value;
     }

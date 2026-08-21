@@ -32,6 +32,8 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
         {
             var sql = BuildSql();
 
+            _logger.LogInformation("Loading top departments by positions count from database");
+
             await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
 
             var command = new CommandDefinition(
@@ -39,8 +41,13 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                 cancellationToken: cancellationToken);
 
             var departments = await connection.QueryAsync<TopDepartmentByPositionsDto>(command);
+            var departmentList = departments.AsList();
 
-            return departments.AsList();
+            _logger.LogInformation(
+                "Top departments by positions count loaded from database. ItemCount: {ItemCount}",
+                departmentList.Count);
+
+            return departmentList;
         }
         catch (OperationCanceledException)
         {
@@ -69,6 +76,12 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                 Offset = (query.Page - 1) * query.Size, RootLimit = query.Size, ChildLimit = query.Prefetch,
             };
 
+            _logger.LogInformation(
+                "Loading root departments from database. Page: {Page}, Size: {Size}, Prefetch: {Prefetch}",
+                query.Page,
+                query.Size,
+                query.Prefetch);
+
             await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
 
             var command = new CommandDefinition(
@@ -81,6 +94,12 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
             var totalCount = await result.ReadSingleAsync<long>();
             var rows = (await result.ReadAsync<DepartmentTreeRow>()).AsList();
             var roots = MapRoots(rows);
+
+            _logger.LogInformation(
+                "Root departments loaded from database. RootCount: {RootCount}, TotalCount: {TotalCount}, Page: {Page}",
+                roots.Count,
+                totalCount,
+                query.Page);
 
             return PagedList<RootDepartmentDto>.Create(
                 roots,
@@ -114,6 +133,12 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
             var sql = BuildDepartmentChildrenSql();
             var parameters = new { query.ParentId, Offset = (query.Page - 1) * query.Size, PageSize = query.Size, };
 
+            _logger.LogInformation(
+                "Loading department children from database. ParentId: {ParentId}, Page: {Page}, Size: {Size}",
+                query.ParentId,
+                query.Page,
+                query.Size);
+
             await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
 
             var command = new CommandDefinition(
@@ -126,6 +151,14 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
             var totalCount = await result.ReadSingleAsync<long>();
             var rows = (await result.ReadAsync<DepartmentTreeRow>()).AsList();
             var children = rows.Select(MapNode).ToList();
+
+            _logger.LogInformation(
+                "Department children loaded from database. ParentId: {ParentId}, ItemCount: {ItemCount}, " +
+                "TotalCount: {TotalCount}, Page: {Page}",
+                query.ParentId,
+                children.Count,
+                totalCount,
+                query.Page);
 
             return PagedList<DepartmentNodeDto>.Create(
                 children,

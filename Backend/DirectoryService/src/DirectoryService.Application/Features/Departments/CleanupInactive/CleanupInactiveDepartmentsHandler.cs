@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Cache;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
@@ -14,15 +15,18 @@ public sealed class CleanupInactiveDepartmentsHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IValidator<CleanupInactiveDepartmentsCommand> _validator;
     private readonly ILogger<CleanupInactiveDepartmentsHandler> _logger;
+    private readonly ICacheInvalidator _cacheInvalidator;
 
     public CleanupInactiveDepartmentsHandler(
         IDepartmentRepository departmentRepository,
         IValidator<CleanupInactiveDepartmentsCommand> validator,
-        ILogger<CleanupInactiveDepartmentsHandler> logger)
+        ILogger<CleanupInactiveDepartmentsHandler> logger,
+        ICacheInvalidator cacheInvalidator)
     {
         _departmentRepository = departmentRepository;
         _validator = validator;
         _logger = logger;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<Result<int, Error>> Handle(
@@ -56,6 +60,9 @@ public sealed class CleanupInactiveDepartmentsHandler
         _logger.LogInformation(
             "Inactive departments cleanup completed. DeletedCount {DeletedCount}",
             cleanupResult.Value);
+
+        await _cacheInvalidator.InvalidateAsync(
+            [CacheConstants.LOCATIONS_CACHE_TAG, CacheConstants.DEPARTMENTS_CACHE_TAG]);
 
         return cleanupResult.Value;
     }

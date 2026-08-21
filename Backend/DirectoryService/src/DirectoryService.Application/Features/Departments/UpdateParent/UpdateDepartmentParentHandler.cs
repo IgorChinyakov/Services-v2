@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Cache;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
@@ -15,15 +16,18 @@ public sealed class UpdateDepartmentParentHandler
     private readonly IDepartmentRepository _departmentRepository;
     private readonly IValidator<UpdateDepartmentParentCommand> _validator;
     private readonly ILogger<UpdateDepartmentParentHandler> _logger;
+    private readonly ICacheInvalidator _cacheInvalidator;
 
     public UpdateDepartmentParentHandler(
         IDepartmentRepository departmentRepository,
         IValidator<UpdateDepartmentParentCommand> validator,
-        ILogger<UpdateDepartmentParentHandler> logger)
+        ILogger<UpdateDepartmentParentHandler> logger,
+        ICacheInvalidator cacheInvalidator)
     {
         _departmentRepository = departmentRepository;
         _validator = validator;
         _logger = logger;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<UnitResult<Error>> Handle(
@@ -60,9 +64,15 @@ public sealed class UpdateDepartmentParentHandler
                 return GeneralErrors.Conflict("Department id is equal to its parent id");
         }
 
-        return await _departmentRepository.MoveParentAsync(
+        var moveParentResult = await _departmentRepository.MoveParentAsync(
             departmentId,
             parentId,
             cancellationToken);
+        if (moveParentResult.IsFailure)
+            return moveParentResult.Error;
+
+        await _cacheInvalidator.InvalidateAsync([CacheConstants.DEPARTMENTS_CACHE_TAG]);
+
+        return moveParentResult;
     }
 }

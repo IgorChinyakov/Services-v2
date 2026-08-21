@@ -1,5 +1,7 @@
-﻿using DirectoryService.Application.Abstractions.Database;
+﻿using DirectoryService.Application.Abstractions.Cache;
+using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Repositories;
+using DirectoryService.Infrastructure.Cache;
 using DirectoryService.Infrastructure.Database;
 using DirectoryService.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -52,6 +54,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         services.AddScoped<IDepartmentQueryRepository, DepartmentQueryRepository>();
         services.AddScoped<IPositionRepository, PositionRepository>();
+        services.AddScoped<ICacheInvalidator, CacheInvalidator>();
 
         return services;
     }

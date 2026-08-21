@@ -1,5 +1,5 @@
 using CSharpFunctionalExtensions;
-using DirectoryService.Application.Abstractions.Database;
+using DirectoryService.Application.Abstractions.Cache;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
@@ -13,20 +13,20 @@ namespace DirectoryService.Application.Features.Departments.SoftDelete;
 public sealed class SoftDeleteDepartmentHandler : ICommandHandler<SoftDeleteDepartmentCommand>
 {
     private readonly IDepartmentRepository _departmentRepository;
-    private readonly ITransactionManager _transactionManager;
     private readonly IValidator<SoftDeleteDepartmentCommand> _validator;
     private readonly ILogger<SoftDeleteDepartmentHandler> _logger;
+    private readonly ICacheInvalidator _cacheInvalidator;
 
     public SoftDeleteDepartmentHandler(
         IDepartmentRepository departmentRepository,
-        ITransactionManager transactionManager,
         IValidator<SoftDeleteDepartmentCommand> validator,
-        ILogger<SoftDeleteDepartmentHandler> logger)
+        ILogger<SoftDeleteDepartmentHandler> logger,
+        ICacheInvalidator cacheInvalidator)
     {
         _departmentRepository = departmentRepository;
-        _transactionManager = transactionManager;
         _validator = validator;
         _logger = logger;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<UnitResult<Error>> Handle(
@@ -70,6 +70,9 @@ public sealed class SoftDeleteDepartmentHandler : ICommandHandler<SoftDeleteDepa
             "Department soft deleted successfully. DepartmentId {DepartmentId}. DeletedAt {DeletedAt}",
             command.DepartmentId,
             softDeleteResult.Value);
+
+        await _cacheInvalidator.InvalidateAsync(
+            [CacheConstants.LOCATIONS_CACHE_TAG, CacheConstants.DEPARTMENTS_CACHE_TAG]);
 
         return UnitResult.Success<Error>();
     }

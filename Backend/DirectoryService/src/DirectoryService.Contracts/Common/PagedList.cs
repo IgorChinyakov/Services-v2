@@ -1,9 +1,11 @@
 ﻿using System.Collections;
+using System.Text.Json.Serialization;
 
 namespace DirectoryService.Contracts.Common;
 
 public sealed class PagedList<T>
 {
+    [JsonConstructor]
     private PagedList(
         IReadOnlyList<T> items,
         int page,

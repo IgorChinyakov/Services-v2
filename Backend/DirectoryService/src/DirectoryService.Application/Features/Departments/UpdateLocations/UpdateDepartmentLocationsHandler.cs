@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Cache;
 using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
@@ -17,17 +18,20 @@ public sealed class UpdateDepartmentLocationsHandler
     private readonly ITransactionManager _transactionManager;
     private readonly IValidator<UpdateDepartmentLocationsCommand> _validator;
     private readonly ILogger<UpdateDepartmentLocationsHandler> _logger;
+    private readonly ICacheInvalidator _cacheInvalidator;
 
     public UpdateDepartmentLocationsHandler(
         IDepartmentRepository departmentRepository,
         ITransactionManager transactionManager,
         IValidator<UpdateDepartmentLocationsCommand> validator,
-        ILogger<UpdateDepartmentLocationsHandler> logger)
+        ILogger<UpdateDepartmentLocationsHandler> logger,
+        ICacheInvalidator cacheInvalidator)
     {
         _departmentRepository = departmentRepository;
         _transactionManager = transactionManager;
         _validator = validator;
         _logger = logger;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<UnitResult<Error>> Handle(
@@ -44,11 +48,7 @@ public sealed class UpdateDepartmentLocationsHandler
         {
             _logger.LogWarning(
                 "Department locations update validation failed. Errors: {@ValidationErrors}",
-                validationResult.Errors.Select(error => new
-                {
-                    error.PropertyName,
-                    error.ErrorMessage,
-                }));
+                validationResult.Errors.Select(error => new { error.PropertyName, error.ErrorMessage, }));
 
             return validationResult.ToError();
         }
@@ -107,11 +107,7 @@ public sealed class UpdateDepartmentLocationsHandler
 
         var saveResult = await _transactionManager.SaveChangesAsync(
             "department locations",
-            new
-            {
-                DepartmentId = departmentId.Value,
-                LocationIds = locationIds.Select(id => id.Value),
-            },
+            new { DepartmentId = departmentId.Value, LocationIds = locationIds.Select(id => id.Value), },
             "Department contains duplicate location links.",
             cancellationToken);
         if (saveResult.IsFailure)
@@ -137,6 +133,9 @@ public sealed class UpdateDepartmentLocationsHandler
             "Department locations updated successfully. DepartmentId {DepartmentId}. LocationCount {LocationCount}",
             command.DepartmentId,
             updateResult.Value);
+
+        await _cacheInvalidator.InvalidateAsync(
+            [CacheConstants.LOCATIONS_CACHE_TAG, CacheConstants.DEPARTMENTS_CACHE_TAG]);
 
         return UnitResult.Success<Error>();
     }

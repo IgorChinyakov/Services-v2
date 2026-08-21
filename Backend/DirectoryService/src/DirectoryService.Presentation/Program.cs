@@ -1,12 +1,15 @@
+using DirectoryService.Infrastructure.Database;
 using DirectoryService.Presentation.Extensions;
 using DirectoryService.Presentation.Middleware;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
+using Serilog.Sinks.SystemConsole.Themes;
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
-    .WriteTo.Console()
+    .WriteTo.Console(theme: AnsiConsoleTheme.Sixteen)
     .CreateBootstrapLogger();
 
 try
@@ -65,6 +68,13 @@ try
 
     if (app.Environment.IsDevelopment())
     {
+        await using var scope = app.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<DirectoryServiceDbContext>();
+
+        Log.Information("Applying database migrations");
+        await dbContext.Database.MigrateAsync();
+        Log.Information("Database migrations applied successfully");
+
         app.MapOpenApi();
         app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "DirectoryService"));
     }

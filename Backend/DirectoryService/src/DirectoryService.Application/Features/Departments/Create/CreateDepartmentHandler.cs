@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Cache;
 using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
@@ -19,17 +20,20 @@ public sealed class CreateDepartmentHandler
     private readonly ITransactionManager _transactionManager;
     private readonly IValidator<CreateDepartmentCommand> _validator;
     private readonly ILogger<CreateDepartmentHandler> _logger;
+    private readonly ICacheInvalidator _cacheInvalidator;
 
     public CreateDepartmentHandler(
         IDepartmentRepository departmentRepository,
         ITransactionManager transactionManager,
         IValidator<CreateDepartmentCommand> validator,
-        ILogger<CreateDepartmentHandler> logger)
+        ILogger<CreateDepartmentHandler> logger,
+        ICacheInvalidator cacheInvalidator)
     {
         _departmentRepository = departmentRepository;
         _transactionManager = transactionManager;
         _validator = validator;
         _logger = logger;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<Result<Guid, Error>> Handle(
@@ -145,6 +149,9 @@ public sealed class CreateDepartmentHandler
             department.Id.Value,
             department.Path,
             department.Depth);
+
+        await _cacheInvalidator.InvalidateAsync(
+            [CacheConstants.LOCATIONS_CACHE_TAG, CacheConstants.DEPARTMENTS_CACHE_TAG]);
 
         return department.Id.Value;
     }

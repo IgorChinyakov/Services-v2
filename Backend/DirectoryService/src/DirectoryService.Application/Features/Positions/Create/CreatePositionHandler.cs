@@ -1,4 +1,5 @@
 using CSharpFunctionalExtensions;
+using DirectoryService.Application.Abstractions.Cache;
 using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
@@ -19,17 +20,20 @@ public sealed class CreatePositionHandler
     private readonly ITransactionManager _transactionManager;
     private readonly IValidator<CreatePositionCommand> _validator;
     private readonly ILogger<CreatePositionHandler> _logger;
+    private readonly ICacheInvalidator _cacheInvalidator;
 
     public CreatePositionHandler(
         IPositionRepository positionRepository,
         ITransactionManager transactionManager,
         IValidator<CreatePositionCommand> validator,
-        ILogger<CreatePositionHandler> logger)
+        ILogger<CreatePositionHandler> logger,
+        ICacheInvalidator cacheInvalidator)
     {
         _positionRepository = positionRepository;
         _transactionManager = transactionManager;
         _validator = validator;
         _logger = logger;
+        _cacheInvalidator = cacheInvalidator;
     }
 
     public async Task<Result<Guid, Error>> Handle(
@@ -134,6 +138,8 @@ public sealed class CreatePositionHandler
         _logger.LogInformation(
             "Position created successfully with id {PositionId}",
             position.Id.Value);
+
+        await _cacheInvalidator.InvalidateAsync([CacheConstants.DEPARTMENTS_CACHE_TAG]);
 
         return position.Id.Value;
     }

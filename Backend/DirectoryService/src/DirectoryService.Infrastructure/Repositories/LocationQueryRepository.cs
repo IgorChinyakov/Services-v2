@@ -42,6 +42,18 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
         {
             var locationsSql = BuildLocationsSql(query, filtersSql);
 
+            _logger.LogInformation(
+                "Loading locations from database. Page: {Page}, PageSize: {PageSize}, " +
+                "Search: {Search}, IsActive: {IsActive}, DepartmentCount: {DepartmentCount}, " +
+                "SortBy: {SortBy}, SortDirection: {SortDirection}",
+                query.Page,
+                query.PageSize,
+                query.Search,
+                query.IsActive,
+                query.DepartmentIds?.Length ?? 0,
+                query.SortBy,
+                query.SortDirection);
+
             await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
 
             var locations = await QueryLocationsAsync(
@@ -55,6 +67,12 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                 filtersSql,
                 parameters,
                 cancellationToken);
+
+            _logger.LogInformation(
+                "Locations loaded from database. ItemCount: {ItemCount}, TotalCount: {TotalCount}, Page: {Page}",
+                locations.Count,
+                totalCount,
+                query.Page);
 
             return PagedList<LocationDto>.Create(
                 locations,
