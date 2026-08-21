@@ -18,11 +18,13 @@ namespace DirectoryService.IntegrationTests;
 public class DirectoryServiceTestsBase : IAsyncLifetime
 {
     protected readonly IServiceProvider Services;
+    private readonly DirectoryServiceWebFactory _factory;
     private readonly Func<Task> _resetDatabase;
     private int _locationNumber;
 
     protected DirectoryServiceTestsBase(DirectoryServiceWebFactory factory)
     {
+        _factory = factory;
         Services = factory.Services;
         _resetDatabase = factory.ResetDatabaseAsync;
     }
@@ -72,6 +74,11 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
             await action(dbContext);
             return true;
         });
+    }
+
+    protected Task<long> GetRedisDatabaseSizeAsync()
+    {
+        return _factory.GetRedisDatabaseSizeAsync();
     }
 
     protected Task<Result<TResponse, Error>> ExecuteCommandAsync<TCommand, TResponse>(
