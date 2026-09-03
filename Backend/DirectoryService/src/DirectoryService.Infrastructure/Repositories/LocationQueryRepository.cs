@@ -169,6 +169,12 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                     l.name as Name,
                     l.time_zone as Timezone,
                     l.is_active as IsActive,
+                    l.created_at as CreatedAt,
+                    (
+                        select count(*)
+                        from department_locations dl
+                        where dl.location_id = l.id
+                    ) as DepartmentCount,
                     l.country as Country,
                     l.city as City,
                     l.street as Street,
@@ -198,7 +204,9 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                 locationRow.Name,
                 addressDto,
                 locationRow.Timezone,
-                locationRow.IsActive),
+                locationRow.IsActive,
+                locationRow.CreatedAt,
+                locationRow.DepartmentCount),
             splitOn: "Country");
 
         return locations.ToList();
@@ -222,5 +230,7 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
         Guid Id,
         string Name,
         string Timezone,
-        bool IsActive);
+        bool IsActive,
+        DateTime CreatedAt,
+        long DepartmentCount);
 }
