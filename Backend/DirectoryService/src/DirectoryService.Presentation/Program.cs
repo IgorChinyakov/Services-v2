@@ -34,6 +34,7 @@ try
     });
 
     builder.Services.AddOpenApi();
+    builder.Services.AddHealthChecks();
 
     var allowedOrigins = builder.Configuration
         .GetSection("Cors:AllowedOrigins")
@@ -99,6 +100,7 @@ try
     app.UseCors("Frontend");
 
     app.MapControllers();
+    app.MapHealthChecks("/health");
 
     app.Run();
 }
