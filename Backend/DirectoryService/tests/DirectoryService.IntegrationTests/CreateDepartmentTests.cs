@@ -148,4 +148,28 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
         result.Error.Messages.Should().ContainSingle(message =>
             message.InvalidField == nameof(CreateDepartmentCommand.LocationIds));
     }
+
+    [Fact]
+    public async Task CreateDepartment_WithMissingParent_ShouldReturnNotFoundAndNotPersistDepartment()
+    {
+        // Arrange
+        var locationId = await SeedLocationAsync();
+        var command = new CreateDepartmentCommand(
+            "Sales Department",
+            "sales",
+            Guid.NewGuid(),
+            [locationId.Value]);
+
+        // Act
+        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Type.Should().Be(ErrorType.NotFound);
+        await ExecuteDbContextAsync(async dbContext =>
+        {
+            var departmentsCount = await dbContext.Departments.CountAsync();
+            departmentsCount.Should().Be(0);
+        });
+    }
 }
