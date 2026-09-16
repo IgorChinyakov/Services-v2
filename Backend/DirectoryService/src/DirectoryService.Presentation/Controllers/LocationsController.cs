@@ -1,6 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Locations.Create;
 using DirectoryService.Application.Features.Locations.Get;
+using DirectoryService.Application.Features.Locations.GetById;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Locations;
 using DirectoryService.Contracts.Locations.Requests;
@@ -18,16 +19,19 @@ public sealed class LocationsController : ControllerBase
 {
     private readonly ICommandHandler<CreateLocationCommand, Guid> _createLocationHandler;
     private readonly IQueryHandler<GetLocationsQuery, PagedList<LocationDto>> _getLocationsHandler;
+    private readonly IQueryHandler<GetLocationByIdQuery, LocationDetailsDto> _getLocationByIdHandler;
     private readonly ILogger<LocationsController> _logger;
 
     public LocationsController(
         ICommandHandler<CreateLocationCommand, Guid> createLocationHandler,
         ILogger<LocationsController> logger,
-        IQueryHandler<GetLocationsQuery, PagedList<LocationDto>> getLocationsHandler)
+        IQueryHandler<GetLocationsQuery, PagedList<LocationDto>> getLocationsHandler,
+        IQueryHandler<GetLocationByIdQuery, LocationDetailsDto> getLocationByIdHandler)
     {
         _createLocationHandler = createLocationHandler;
         _logger = logger;
         _getLocationsHandler = getLocationsHandler;
+        _getLocationByIdHandler = getLocationByIdHandler;
     }
 
     [HttpPost]
@@ -75,5 +79,24 @@ public sealed class LocationsController : ControllerBase
             request.IsActive);
 
         return await _getLocationsHandler.HandleAsync(query, cancellationToken);
+    }
+
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType<EndpointResult<LocationDetailsDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<LocationDetailsDto>> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received get location by id request. LocationId {LocationId}. TraceId {TraceId}",
+            id,
+            HttpContext.TraceIdentifier);
+
+        return await _getLocationByIdHandler.HandleAsync(
+            new GetLocationByIdQuery(id),
+            cancellationToken);
     }
 }

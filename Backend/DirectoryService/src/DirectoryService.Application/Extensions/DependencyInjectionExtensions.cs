@@ -1,6 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.CleanupInactive;
 using DirectoryService.Application.Features.Departments.Create;
+using DirectoryService.Application.Features.Departments.GetById;
 using DirectoryService.Application.Features.Departments.GetChildren;
 using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
@@ -9,6 +10,7 @@ using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
 using DirectoryService.Application.Features.Locations.Create;
 using DirectoryService.Application.Features.Locations.Get;
+using DirectoryService.Application.Features.Locations.GetById;
 using DirectoryService.Application.Features.Positions.Create;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
@@ -32,6 +34,12 @@ public static class DependencyInjectionExtensions
             ICommandHandler<CleanupInactiveDepartmentsCommand, int>,
             CleanupInactiveDepartmentsHandler>();
         services.AddScoped<IQueryHandler<GetLocationsQuery, PagedList<LocationDto>>, GetLocationsHandler>();
+        services.AddScoped<
+            IQueryHandler<GetLocationByIdQuery, LocationDetailsDto>,
+            GetLocationByIdHandler>();
+        services.AddScoped<
+            IQueryHandler<GetDepartmentByIdQuery, DepartmentDetailsDto>,
+            GetDepartmentByIdHandler>();
         services.AddScoped<
             IQueryHandler<GetRootDepartmentsQuery, PagedList<RootDepartmentDto>>,
             GetRootDepartmentsHandler>();

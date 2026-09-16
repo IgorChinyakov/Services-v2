@@ -48,6 +48,9 @@ public static class DependencyInjectionExtensions
             options.UseLoggerFactory(loggerFactory);
         });
 
+        services.AddScoped<IReadDbContext>(sp =>
+            sp.GetRequiredService<DirectoryServiceDbContext>());
+
         services.AddScoped<ITransactionManager, TransactionManager>();
         services.AddScoped<ILocationRepository, LocationRepository>();
         services.AddScoped<ILocationQueryRepository, LocationQueryRepository>();

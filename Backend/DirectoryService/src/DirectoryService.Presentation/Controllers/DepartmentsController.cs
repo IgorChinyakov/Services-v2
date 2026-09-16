@@ -1,5 +1,6 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.Create;
+using DirectoryService.Application.Features.Departments.GetById;
 using DirectoryService.Application.Features.Departments.GetChildren;
 using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
@@ -23,6 +24,7 @@ public sealed class DepartmentsController : ControllerBase
     private readonly ICommandHandler<UpdateDepartmentLocationsCommand> _updateDepartmentLocationsHandler;
     private readonly ICommandHandler<UpdateDepartmentParentCommand> _updateDepartmentParentHandler;
     private readonly ICommandHandler<SoftDeleteDepartmentCommand> _softDeleteDepartmentHandler;
+    private readonly IQueryHandler<GetDepartmentByIdQuery, DepartmentDetailsDto> _getDepartmentByIdHandler;
     private readonly IQueryHandler<
         GetRootDepartmentsQuery,
         PagedList<RootDepartmentDto>> _getRootDepartmentsHandler;
@@ -42,6 +44,7 @@ public sealed class DepartmentsController : ControllerBase
         ICommandHandler<UpdateDepartmentLocationsCommand> updateDepartmentLocationsHandler,
         ICommandHandler<UpdateDepartmentParentCommand> updateDepartmentParentHandler,
         ICommandHandler<SoftDeleteDepartmentCommand> softDeleteDepartmentHandler,
+        IQueryHandler<GetDepartmentByIdQuery, DepartmentDetailsDto> getDepartmentByIdHandler,
         IQueryHandler<
             GetRootDepartmentsQuery,
             PagedList<RootDepartmentDto>> getRootDepartmentsHandler,
@@ -57,6 +60,7 @@ public sealed class DepartmentsController : ControllerBase
         _updateDepartmentLocationsHandler = updateDepartmentLocationsHandler;
         _updateDepartmentParentHandler = updateDepartmentParentHandler;
         _softDeleteDepartmentHandler = softDeleteDepartmentHandler;
+        _getDepartmentByIdHandler = getDepartmentByIdHandler;
         _getRootDepartmentsHandler = getRootDepartmentsHandler;
         _getDepartmentChildrenHandler = getDepartmentChildrenHandler;
         _getTopDepartmentsByPositionsHandler = getTopDepartmentsByPositionsHandler;
@@ -151,6 +155,25 @@ public sealed class DepartmentsController : ControllerBase
         var query = new GetTopDepartmentsByPositionsQuery();
 
         return await _getTopDepartmentsByPositionsHandler.HandleAsync(query, cancellationToken);
+    }
+
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType<EndpointResult<DepartmentDetailsDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<DepartmentDetailsDto>> GetByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received get department by id request. DepartmentId {DepartmentId}. TraceId {TraceId}",
+            id,
+            HttpContext.TraceIdentifier);
+
+        return await _getDepartmentByIdHandler.HandleAsync(
+            new GetDepartmentByIdQuery(id),
+            cancellationToken);
     }
 
     [HttpPut("{departmentId:guid}/locations")]
