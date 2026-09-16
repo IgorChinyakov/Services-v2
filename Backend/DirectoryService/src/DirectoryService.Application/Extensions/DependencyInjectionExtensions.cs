@@ -1,6 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.CleanupInactive;
 using DirectoryService.Application.Features.Departments.Create;
+using DirectoryService.Application.Features.Departments.Get;
 using DirectoryService.Application.Features.Departments.GetById;
 using DirectoryService.Application.Features.Departments.GetChildren;
 using DirectoryService.Application.Features.Departments.GetRoots;
@@ -40,6 +41,9 @@ public static class DependencyInjectionExtensions
         services.AddScoped<
             IQueryHandler<GetDepartmentByIdQuery, DepartmentDetailsDto>,
             GetDepartmentByIdHandler>();
+        services.AddScoped<
+            IQueryHandler<GetDepartmentsQuery, PagedList<DepartmentListItemDto>>,
+            GetDepartmentsHandler>();
         services.AddScoped<
             IQueryHandler<GetRootDepartmentsQuery, PagedList<RootDepartmentDto>>,
             GetRootDepartmentsHandler>();
