@@ -6,6 +6,7 @@ using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
 using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Domain.ValueObjects.Department;
 using FluentValidation;
@@ -76,8 +77,7 @@ public sealed class CreateDepartmentHandler
 
         if (identifierExistsResult.Value)
         {
-            return GeneralErrors.Conflict(
-                "Department identifier already exists.",
+            return DepartmentErrors.IdentifierDuplicate(
                 nameof(CreateDepartmentCommand.Identifier));
         }
 
@@ -106,9 +106,8 @@ public sealed class CreateDepartmentHandler
 
         if (missingLocationsResult.Value.Count > 0)
         {
-            var missingIds = string.Join(", ", missingLocationsResult.Value.Select(id => id.Value));
-            return GeneralErrors.Validation(
-                $"Locations do not exist or are inactive: {missingIds}",
+            return LocationErrors.NotFound(
+                missingLocationsResult.Value.Select(id => id.Value),
                 nameof(CreateDepartmentCommand.LocationIds));
         }
 
@@ -132,8 +131,7 @@ public sealed class CreateDepartmentHandler
         var saveResult = await _transactionManager.SaveChangesAsync(
             "department",
             new { DepartmentId = department.Id.Value },
-            "Department with the same identifier or path already exists.",
-            cancellationToken);
+            cancellationToken: cancellationToken);
         if (saveResult.IsFailure)
         {
             _logger.LogWarning(

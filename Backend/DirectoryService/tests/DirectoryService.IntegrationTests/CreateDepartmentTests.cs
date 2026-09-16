@@ -82,7 +82,7 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
     }
 
     [Fact]
-    public async Task CreateDepartment_WithMissingLocation_ShouldReturnValidationError()
+    public async Task CreateDepartment_WithMissingLocation_ShouldReturnNotFoundError()
     {
         // Arrange
         var missingLocationId = Guid.NewGuid();
@@ -97,8 +97,9 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Validation, result.Error.GetMessage());
+        result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
         result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "location.not_found" &&
             message.InvalidField == nameof(CreateDepartmentCommand.LocationIds));
     }
 
@@ -125,6 +126,7 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.Conflict, result.Error.GetMessage());
         result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "department.identifier.duplicate" &&
             message.InvalidField == nameof(CreateDepartmentCommand.Identifier));
     }
 
@@ -166,6 +168,8 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
         // Assert
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.NotFound);
+        result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "department.not_found");
         await ExecuteDbContextAsync(async dbContext =>
         {
             var departmentsCount = await dbContext.Departments.CountAsync();

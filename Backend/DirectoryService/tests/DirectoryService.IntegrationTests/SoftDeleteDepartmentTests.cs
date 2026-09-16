@@ -110,6 +110,8 @@ public class SoftDeleteDepartmentTests : DirectoryServiceTestsBase
         // Assert
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
+        result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "department.not_found");
     }
 
     [Fact]
@@ -128,6 +130,8 @@ public class SoftDeleteDepartmentTests : DirectoryServiceTestsBase
         // Assert
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
+        result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "department.not_found");
     }
 
     [Fact]
@@ -195,6 +199,8 @@ public class SoftDeleteDepartmentTests : DirectoryServiceTestsBase
         // Assert
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.Conflict, result.Error.GetMessage());
+        result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "department.path.duplicate");
 
         await ExecuteDbContextAsync(async dbContext =>
         {

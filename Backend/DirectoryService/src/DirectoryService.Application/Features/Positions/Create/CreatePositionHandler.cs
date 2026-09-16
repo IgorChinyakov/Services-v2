@@ -6,6 +6,7 @@ using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
 using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Domain.ValueObjects.Position;
 using FluentValidation;
@@ -80,9 +81,7 @@ public sealed class CreatePositionHandler
 
         if (activeNameExistsResult.Value)
         {
-            return GeneralErrors.Conflict(
-                "Active position with the same name already exists.",
-                nameof(CreatePositionCommand.Name));
+            return PositionErrors.NameDuplicate(nameof(CreatePositionCommand.Name));
         }
 
         var departmentIds = command.DepartmentIds
@@ -98,9 +97,8 @@ public sealed class CreatePositionHandler
 
         if (missingDepartmentsResult.Value.Count > 0)
         {
-            var missingIds = string.Join(", ", missingDepartmentsResult.Value.Select(id => id.Value));
-            return GeneralErrors.Validation(
-                $"Departments do not exist or are inactive: {missingIds}",
+            return DepartmentErrors.NotFound(
+                missingDepartmentsResult.Value.Select(id => id.Value),
                 nameof(CreatePositionCommand.DepartmentIds));
         }
 
@@ -123,8 +121,7 @@ public sealed class CreatePositionHandler
         var saveResult = await _transactionManager.SaveChangesAsync(
             "position",
             new { PositionId = position.Id.Value },
-            "An active position with the same name already exists.",
-            cancellationToken);
+            cancellationToken: cancellationToken);
         if (saveResult.IsFailure)
         {
             _logger.LogWarning(

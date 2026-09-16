@@ -101,6 +101,8 @@ public class UpdateDepartmentParentTests : DirectoryServiceTestsBase
         // Assert
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.Conflict, result.Error.GetMessage());
+        result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "department.parent.descendant");
 
         await ExecuteDbContextAsync(async dbContext =>
         {
@@ -135,6 +137,8 @@ public class UpdateDepartmentParentTests : DirectoryServiceTestsBase
         // Assert
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
+        result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "department.parent.not_found");
     }
 
     [Fact]

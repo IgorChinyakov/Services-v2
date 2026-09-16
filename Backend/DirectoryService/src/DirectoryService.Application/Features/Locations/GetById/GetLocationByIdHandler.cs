@@ -5,6 +5,7 @@ using DirectoryService.Application.Extensions.Validation;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Locations;
 using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -60,9 +61,7 @@ public sealed class GetLocationByIdHandler
         {
             _logger.LogWarning("Location {LocationId} was not found", query.Id);
 
-            return GeneralErrors.NotFound(
-                $"Location with id '{query.Id}' was not found.",
-                nameof(query.Id));
+            return LocationErrors.NotFound(query.Id, nameof(query.Id));
         }
 
         _logger.LogInformation("Location {LocationId} was loaded", query.Id);

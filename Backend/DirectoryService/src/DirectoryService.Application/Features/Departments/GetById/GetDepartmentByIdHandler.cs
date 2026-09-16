@@ -4,6 +4,7 @@ using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Extensions.Validation;
 using DirectoryService.Contracts.Departments;
 using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -55,9 +56,7 @@ public sealed class GetDepartmentByIdHandler
         {
             _logger.LogWarning("Department {DepartmentId} was not found", query.Id);
 
-            return GeneralErrors.NotFound(
-                $"Department with id '{query.Id}' was not found.",
-                nameof(query.Id));
+            return DepartmentErrors.NotFound(query.Id, nameof(query.Id));
         }
 
         _logger.LogInformation("Department {DepartmentId} was loaded", query.Id);

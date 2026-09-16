@@ -3,25 +3,25 @@ namespace DirectoryService.Domain.Shared;
 public static class GeneralErrors
 {
     public static Error Validation(string message, string? invalidField = null) =>
-        Error.Create([new ErrorMessage("field.is.invalid", message, invalidField)], ErrorType.Validation);
+        Error.Validation("field.is.invalid", message, invalidField);
 
     public static Error NotFound(string message, string? invalidField = null) =>
-        Error.Create([new ErrorMessage("not.found", message, invalidField)], ErrorType.NotFound);
+        Error.NotFound("not.found", message, invalidField);
 
     public static Error Failure(string message, string? invalidField = null) =>
-        Error.Create([new ErrorMessage("failure", message, invalidField)], ErrorType.Failure);
+        Error.Failure("failure", message, invalidField);
 
     public static Error Conflict(string message, string? invalidField = null) =>
-        Error.Create([new ErrorMessage("conflict", message, invalidField)], ErrorType.Conflict);
+        Error.Conflict("conflict", message, invalidField);
 
     public static Error Authentication(string message, string? invalidField = null) =>
-        Error.Create([new ErrorMessage("authentication", message, invalidField)], ErrorType.Authentication);
+        Error.Authentication("authentication", message, invalidField);
 
     public static Error Authorization(string message, string? invalidField = null) =>
-        Error.Create([new ErrorMessage("authorization", message, invalidField)], ErrorType.Authorization);
+        Error.Authorization("authorization", message, invalidField);
 
     public static Error Validation(IEnumerable<ErrorMessage> messages) =>
-        Error.Create(messages, ErrorType.Validation);
+        Error.Validation(messages);
 
     public static Error NotFound(IEnumerable<ErrorMessage> messages) =>
         Error.Create(messages, ErrorType.NotFound);

@@ -61,10 +61,12 @@ public class UpdateDepartmentLocationsTests : DirectoryServiceTestsBase
         // Assert
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
+        result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "department.not_found");
     }
 
     [Fact]
-    public async Task UpdateDepartmentLocations_WithMissingLocation_ShouldReturnValidationErrorAndKeepOldLocations()
+    public async Task UpdateDepartmentLocations_WithMissingLocation_ShouldReturnNotFoundErrorAndKeepOldLocations()
     {
         // Arrange
         var oldLocationId = await SeedLocationAsync();
@@ -81,8 +83,9 @@ public class UpdateDepartmentLocationsTests : DirectoryServiceTestsBase
 
         // Assert
         result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Validation, result.Error.GetMessage());
+        result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
         result.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "location.not_found" &&
             message.InvalidField == nameof(UpdateDepartmentLocationsCommand.LocationIds));
 
         await ExecuteDbContextAsync(async dbContext =>

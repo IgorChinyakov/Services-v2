@@ -4,6 +4,7 @@ using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
 using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
@@ -61,7 +62,10 @@ public sealed class UpdateDepartmentParentHandler
         if (parentId is not null)
         {
             if (departmentId == parentId)
-                return GeneralErrors.Conflict("Department id is equal to its parent id");
+            {
+                return DepartmentErrors.ParentIsSelf(
+                    nameof(UpdateDepartmentParentCommand.ParentId));
+            }
         }
 
         var moveParentResult = await _departmentRepository.MoveParentAsync(

@@ -3,6 +3,7 @@ using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Database;
 using DirectoryService.Infrastructure.Errors;
@@ -68,7 +69,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                     cancellationToken);
 
             if (department is null)
-                return GeneralErrors.NotFound("Department does not exist or is inactive.");
+                return DepartmentErrors.NotFound(departmentId.Value, nameof(departmentId));
 
             return department;
         }
@@ -208,7 +209,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 if (rollbackResult.IsFailure)
                     return rollbackResult;
 
-                return GeneralErrors.NotFound("Department is not found.", nameof(departmentId));
+                return DepartmentErrors.NotFound(departmentId.Value, nameof(departmentId));
             }
 
             await _dbContext.Database
@@ -249,7 +250,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                     if (rollbackResult.IsFailure)
                         return rollbackResult;
 
-                    return GeneralErrors.NotFound("Department parent is not found.", nameof(parentId));
+                    return DepartmentErrors.ParentNotFound(parentId.Value, nameof(parentId));
                 }
             }
 
@@ -268,9 +269,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 if (rollbackResult.IsFailure)
                     return rollbackResult;
 
-                return GeneralErrors.Conflict(
-                    "Cannot move department under its own descendant.",
-                    nameof(parentId));
+                return DepartmentErrors.ParentIsDescendant(nameof(parentId));
             }
 
             string oldPath = department.Path;
@@ -359,7 +358,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 if (transactionRollbackResult.IsFailure)
                     return transactionRollbackResult.Error;
 
-                return GeneralErrors.NotFound("Department is not found.", nameof(departmentId));
+                return DepartmentErrors.NotFound(departmentId.Value, nameof(departmentId));
             }
 
             var lockedDepartment = await _dbContext.Departments
@@ -371,7 +370,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 if (transactionRollbackResult.IsFailure)
                     return transactionRollbackResult.Error;
 
-                return GeneralErrors.NotFound("Department is not found.", nameof(departmentId));
+                return DepartmentErrors.NotFound(departmentId.Value, nameof(departmentId));
             }
 
             var oldPath = lockedDepartment.Path;

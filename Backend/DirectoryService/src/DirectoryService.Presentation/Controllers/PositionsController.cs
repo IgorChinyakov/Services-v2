@@ -25,6 +25,7 @@ public sealed class PositionsController : ControllerBase
     [HttpPost]
     [ProducesResponseType<EndpointResult<Guid>>(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<Guid>> CreateAsync(

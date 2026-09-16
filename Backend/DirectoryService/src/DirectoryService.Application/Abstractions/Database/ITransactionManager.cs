@@ -11,6 +11,5 @@ public interface ITransactionManager
     Task<UnitResult<Error>> SaveChangesAsync(
         string entityName,
         object? context = null,
-        string? uniqueViolationMessage = null,
         CancellationToken cancellationToken = default);
 }

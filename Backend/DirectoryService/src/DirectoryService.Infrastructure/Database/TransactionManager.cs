@@ -46,7 +46,6 @@ public sealed class TransactionManager : ITransactionManager
     public async Task<UnitResult<Error>> SaveChangesAsync(
         string entityName,
         object? context = null,
-        string? uniqueViolationMessage = null,
         CancellationToken cancellationToken = default)
     {
         try
@@ -62,7 +61,7 @@ public sealed class TransactionManager : ITransactionManager
         {
             ClearChangeTracker();
 
-            var error = MapDbUpdateException(exception, entityName, uniqueViolationMessage);
+            var error = MapDbUpdateException(exception, entityName);
             var sqlState = (exception.InnerException as PostgresException)?.SqlState;
 
             _logger.LogError(
@@ -115,16 +114,14 @@ public sealed class TransactionManager : ITransactionManager
 
     private static Error MapDbUpdateException(
         DbUpdateException exception,
-        string entityName,
-        string? uniqueViolationMessage)
+        string entityName)
     {
         if (exception.InnerException is not PostgresException postgresException)
             return DatabaseErrors.SaveFailed(entityName);
 
         return DatabaseErrors.FromPostgresException(
             postgresException,
-            entityName,
-            uniqueViolationMessage);
+            entityName);
     }
 
     private void ClearChangeTracker()

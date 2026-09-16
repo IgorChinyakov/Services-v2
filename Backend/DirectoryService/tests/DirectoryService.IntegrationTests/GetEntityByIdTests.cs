@@ -60,6 +60,8 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
         envelope.Should().NotBeNull();
         envelope!.IsError.Should().BeTrue();
         envelope.Error!.Type.Should().Be(ErrorType.NotFound);
+        envelope.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "location.not_found");
     }
 
     [Fact]
@@ -100,6 +102,8 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
         envelope.Should().NotBeNull();
         envelope!.IsError.Should().BeTrue();
         envelope.Error!.Type.Should().Be(ErrorType.NotFound);
+        envelope.Error.Messages.Should().ContainSingle(message =>
+            message.Code == "department.not_found");
     }
 
     [Fact]

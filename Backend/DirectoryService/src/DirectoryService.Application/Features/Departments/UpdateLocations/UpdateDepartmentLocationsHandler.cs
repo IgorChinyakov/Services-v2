@@ -5,6 +5,7 @@ using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
 using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
@@ -74,9 +75,8 @@ public sealed class UpdateDepartmentLocationsHandler
 
         if (missingLocationsResult.Value.Count > 0)
         {
-            var missingIds = string.Join(", ", missingLocationsResult.Value.Select(id => id.Value));
-            return GeneralErrors.Validation(
-                $"Locations do not exist or are inactive: {missingIds}",
+            return LocationErrors.NotFound(
+                missingLocationsResult.Value.Select(id => id.Value),
                 nameof(UpdateDepartmentLocationsCommand.LocationIds));
         }
 
@@ -108,8 +108,7 @@ public sealed class UpdateDepartmentLocationsHandler
         var saveResult = await _transactionManager.SaveChangesAsync(
             "department locations",
             new { DepartmentId = departmentId.Value, LocationIds = locationIds.Select(id => id.Value), },
-            "Department contains duplicate location links.",
-            cancellationToken);
+            cancellationToken: cancellationToken);
         if (saveResult.IsFailure)
         {
             var rollbackResult = await transaction.RollbackAsync(cancellationToken);

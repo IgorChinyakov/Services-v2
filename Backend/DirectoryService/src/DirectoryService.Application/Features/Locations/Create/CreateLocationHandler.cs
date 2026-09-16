@@ -94,8 +94,7 @@ public sealed class CreateLocationHandler
         var saveResult = await _transactionManager.SaveChangesAsync(
             "location",
             new { LocationId = location.Id.Value },
-            "Location with the same name or address already exists.",
-            cancellationToken);
+            cancellationToken: cancellationToken);
         if (saveResult.IsFailure)
         {
             _logger.LogWarning(
