@@ -61,6 +61,11 @@ public static class DepartmentErrors
             "Department cannot be moved under a soft-deleted parent.",
             invalidField);
 
+    public static Error MoveConflict() =>
+        Error.Conflict(
+            "department.move.conflict",
+            "Department move conflicted with another operation. Refresh the tree and try again.");
+
     public static Error LocationAlreadyLinked() =>
         Error.Conflict(
             "department.location.duplicate",

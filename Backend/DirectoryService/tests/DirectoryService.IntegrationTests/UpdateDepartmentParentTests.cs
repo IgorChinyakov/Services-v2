@@ -118,7 +118,7 @@ public sealed class UpdateDepartmentParentTests : DirectoryServiceTestsBase
     public async Task UpdateDepartmentParent_WithSameIds_ShouldReturnBadRequest()
     {
         // Arrange
-        var departmentId = DepartmentId.New();
+        var departmentId = await SeedDepartmentAsync("Sales Department", "sales");
         using var client = CreateClient();
 
         // Act

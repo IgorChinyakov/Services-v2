@@ -1,3 +1,4 @@
+using System.Data;
 using CSharpFunctionalExtensions;
 using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Domain.Shared;
@@ -29,7 +30,9 @@ public sealed class TransactionManager : ITransactionManager
     {
         try
         {
-            var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+            var transaction = await _dbContext.Database.BeginTransactionAsync(
+                IsolationLevel.ReadCommitted,
+                cancellationToken);
             return new TransactionScope(transaction, _scopeLogger);
         }
         catch (OperationCanceledException)

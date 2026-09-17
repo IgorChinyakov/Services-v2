@@ -1,5 +1,6 @@
 using CSharpFunctionalExtensions;
 using DirectoryService.Application.Abstractions.Cache;
+using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
@@ -19,17 +20,20 @@ public sealed class UpdateDepartmentParentHandler
     private readonly IValidator<UpdateDepartmentParentCommand> _validator;
     private readonly ILogger<UpdateDepartmentParentHandler> _logger;
     private readonly ICacheInvalidator _cacheInvalidator;
+    private readonly ITransactionManager _transactionManager;
 
     public UpdateDepartmentParentHandler(
         IDepartmentRepository departmentRepository,
         IValidator<UpdateDepartmentParentCommand> validator,
         ILogger<UpdateDepartmentParentHandler> logger,
-        ICacheInvalidator cacheInvalidator)
+        ICacheInvalidator cacheInvalidator,
+        ITransactionManager transactionManager)
     {
         _departmentRepository = departmentRepository;
         _validator = validator;
         _logger = logger;
         _cacheInvalidator = cacheInvalidator;
+        _transactionManager = transactionManager;
     }
 
     public async Task<Result<DepartmentMoveResultDto, Error>> Handle(
@@ -60,21 +64,28 @@ public sealed class UpdateDepartmentParentHandler
             ? null
             : DepartmentId.Create(command.ParentId.Value);
 
-        if (parentId is not null)
-        {
-            if (departmentId == parentId)
-            {
-                return DepartmentErrors.MoveParentIsSelf(
-                    nameof(UpdateDepartmentParentCommand.ParentId));
-            }
-        }
+        var transactionResult = await _transactionManager.BeginTransactionAsync(cancellationToken);
+        if (transactionResult.IsFailure)
+            return transactionResult.Error;
+
+        await using var transaction = transactionResult.Value;
 
         var moveParentResult = await _departmentRepository.MoveParentAsync(
             departmentId,
             parentId,
             cancellationToken);
         if (moveParentResult.IsFailure)
+        {
+            var rollbackResult = await transaction.RollbackAsync(cancellationToken);
+            if (rollbackResult.IsFailure)
+                return rollbackResult.Error;
+
             return moveParentResult.Error;
+        }
+
+        var commitResult = await transaction.CommitAsync(cancellationToken);
+        if (commitResult.IsFailure)
+            return commitResult.Error;
 
         if (moveParentResult.Value.WasChanged)
             await _cacheInvalidator.InvalidateAsync([CacheConstants.DEPARTMENTS_CACHE_TAG]);

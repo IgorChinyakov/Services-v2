@@ -9,6 +9,7 @@ using DirectoryService.Infrastructure.Database;
 using DirectoryService.Infrastructure.Errors;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace DirectoryService.Infrastructure.Repositories;
 
@@ -330,15 +331,13 @@ public sealed class DepartmentRepository : IDepartmentRepository
         DepartmentId? parentId,
         CancellationToken cancellationToken)
     {
-        var transactionScopeResult = await _transactionManager.BeginTransactionAsync(cancellationToken);
-        if (transactionScopeResult.IsFailure)
-            return transactionScopeResult.Error;
-
-        await using var transactionScope = transactionScopeResult.Value;
-
         try
         {
-            var department = await _dbContext.Database
+            Guid[] departmentIdsToLock = parentId is null || parentId == departmentId
+                ? [departmentId.Value]
+                : [departmentId.Value, parentId.Value];
+
+            var lockedDepartments = await _dbContext.Database
                 .SqlQuery<DepartmentMoveInfo>($"""
                                                SELECT
                                                    id AS "Id",
@@ -350,84 +349,38 @@ public sealed class DepartmentRepository : IDepartmentRepository
                                                    updated_at AS "UpdatedAt",
                                                    deleted_at AS "DeletedAt"
                                                FROM departments
-                                               WHERE id = {departmentId.Value} AND is_active = TRUE
-                                               FOR UPDATE
-                                               """)
-                .SingleOrDefaultAsync(cancellationToken);
-
-            if (department is null)
-            {
-                var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
-                if (rollbackResult.IsFailure)
-                    return rollbackResult.Error;
-
-                return DepartmentErrors.NotFound(departmentId.Value, nameof(departmentId));
-            }
-
-            await _dbContext.Database
-                .SqlQuery<DepartmentMoveInfo>($"""
-                                               SELECT
-                                                   id AS "Id",
-                                                   parent_id AS "ParentId",
-                                                   slug AS "Slug",
-                                                   path::text AS "Path",
-                                                   depth AS "Depth",
-                                                   is_active AS "IsActive",
-                                                   updated_at AS "UpdatedAt",
-                                                   deleted_at AS "DeletedAt"
-                                               FROM departments
-                                               WHERE path <@ {department.Path}::ltree
+                                               WHERE id = ANY({departmentIdsToLock})
                                                ORDER BY id
                                                FOR UPDATE
                                                """)
                 .ToListAsync(cancellationToken);
 
+            var department = lockedDepartments.SingleOrDefault(item => item.Id == departmentId.Value);
+
+            if (department is null || !department.IsActive || department.DeletedAt is not null)
+                return DepartmentErrors.NotFound(departmentId.Value, nameof(departmentId));
+
+            if (parentId == departmentId)
+            {
+                return DepartmentErrors.MoveParentIsSelf(
+                    nameof(parentId));
+            }
+
             DepartmentMoveInfo? parent = null;
             if (parentId is not null)
             {
-                parent = await _dbContext.Database
-                    .SqlQuery<DepartmentMoveInfo>($"""
-                                                   SELECT
-                                                       id AS "Id",
-                                                       parent_id AS "ParentId",
-                                                       slug AS "Slug",
-                                                       path::text AS "Path",
-                                                       depth AS "Depth",
-                                                       is_active AS "IsActive",
-                                                       updated_at AS "UpdatedAt",
-                                                       deleted_at AS "DeletedAt"
-                                                   FROM departments
-                                                   WHERE id = {parentId.Value}
-                                                   FOR UPDATE
-                                                   """)
-                    .SingleOrDefaultAsync(cancellationToken);
+                parent = lockedDepartments.SingleOrDefault(item => item.Id == parentId.Value);
 
                 if (parent is null)
-                {
-                    var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
-                    if (rollbackResult.IsFailure)
-                        return rollbackResult.Error;
-
                     return DepartmentErrors.ParentNotFound(parentId.Value, nameof(parentId));
-                }
 
                 if (!parent.IsActive || parent.DeletedAt is not null)
-                {
-                    var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
-                    if (rollbackResult.IsFailure)
-                        return rollbackResult.Error;
-
                     return DepartmentErrors.MoveParentDeleted(nameof(parentId));
-                }
             }
 
             var requestedParentId = parentId?.Value;
             if (department.ParentId == requestedParentId)
             {
-                var noOpCommitResult = await transactionScope.CommitAsync(cancellationToken);
-                if (noOpCommitResult.IsFailure)
-                    return noOpCommitResult.Error;
-
                 return new DepartmentMoveResult(
                     department.Id,
                     department.ParentId,
@@ -447,13 +400,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
             }
 
             if (isParentInsideDepartmentSubtree)
-            {
-                var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
-                if (rollbackResult.IsFailure)
-                    return rollbackResult.Error;
-
                 return DepartmentErrors.MoveCycle(nameof(parentId));
-            }
 
             string oldPath = department.Path;
             string newPath = parent is null ? department.Slug : parent.Path + "." + department.Slug;
@@ -488,10 +435,6 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 parentId?.Value,
                 updatedRows);
 
-            var commitResult = await transactionScope.CommitAsync(cancellationToken);
-            if (commitResult.IsFailure)
-                return commitResult.Error;
-
             return new DepartmentMoveResult(
                 department.Id,
                 newParentId,
@@ -504,12 +447,19 @@ public sealed class DepartmentRepository : IDepartmentRepository
         {
             throw;
         }
+        catch (PostgresException exception) when (IsMoveConflict(exception))
+        {
+            _logger.LogWarning(
+                exception,
+                "Concurrent department move conflict. DepartmentId {DepartmentId}. ParentId {ParentId}. SqlState {SqlState}",
+                departmentId.Value,
+                parentId?.Value,
+                exception.SqlState);
+
+            return DepartmentErrors.MoveConflict();
+        }
         catch (Exception exception)
         {
-            var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
-            if (rollbackResult.IsFailure)
-                return rollbackResult.Error;
-
             _logger.LogError(
                 exception,
                 "Failed to move department parent. DepartmentId {DepartmentId}. ParentId {ParentId}",
@@ -827,6 +777,12 @@ public sealed class DepartmentRepository : IDepartmentRepository
 
         return department;
     }
+
+    private static bool IsMoveConflict(PostgresException exception) =>
+        exception.SqlState is
+            PostgresErrorCodes.DeadlockDetected or
+            PostgresErrorCodes.SerializationFailure or
+            PostgresErrorCodes.LockNotAvailable;
 
     private sealed record DepartmentMoveInfo(
         Guid Id,
