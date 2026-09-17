@@ -1,5 +1,7 @@
-using DirectoryService.Application.Features.Positions.Update;
-using DirectoryService.Domain.Shared;
+using System.Net;
+using System.Net.Http.Json;
+using DirectoryService.Contracts.Positions.Requests;
+using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,18 +16,22 @@ public sealed class UpdatePositionTests : DirectoryServiceTestsBase
     }
 
     [Fact]
-    public async Task UpdatePosition_WithValidName_ShouldRenamePosition()
+    public async Task UpdatePosition_WithValidName_ShouldReturnOkAndRenamePosition()
     {
         // Arrange
         var departmentId = await SeedDepartmentAsync("Development Department", "development");
         var positionId = await SeedPositionAsync("Developer", [departmentId]);
-        var command = new UpdatePositionCommand(positionId.Value, "Senior Developer");
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PatchAsJsonAsync(
+            $"/api/positions/{positionId.Value}",
+            new UpdatePositionRequest { Name = "Senior Developer" });
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.IsError.Should().BeFalse();
         await ExecuteDbContextAsync(async dbContext =>
         {
             var position = await dbContext.Positions.SingleAsync(item => item.Id == positionId);
@@ -40,29 +46,33 @@ public sealed class UpdatePositionTests : DirectoryServiceTestsBase
         var departmentId = await SeedDepartmentAsync("Development Department", "development");
         await SeedPositionAsync("Developer", [departmentId]);
         var positionId = await SeedPositionAsync("Designer", [departmentId]);
-        var command = new UpdatePositionCommand(positionId.Value, "Developer");
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PatchAsJsonAsync(
+            $"/api/positions/{positionId.Value}",
+            new UpdatePositionRequest { Name = "Developer" });
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Conflict);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "position.name.duplicate");
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "position.name.duplicate");
     }
 
     [Fact]
     public async Task UpdatePosition_WhenPositionDoesNotExist_ShouldReturnNotFound()
     {
         // Arrange
-        var command = new UpdatePositionCommand(Guid.NewGuid(), "Developer");
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PatchAsJsonAsync(
+            $"/api/positions/{Guid.NewGuid()}",
+            new UpdatePositionRequest { Name = "Developer" });
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "position.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "position.not_found");
     }
 }

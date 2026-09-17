@@ -1,6 +1,7 @@
-using DirectoryService.Application.Features.Departments.GetTopByPositions;
+using System.Net;
+using System.Net.Http.Json;
 using DirectoryService.Contracts.Departments;
-using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,7 +16,7 @@ public sealed class GetTopDepartmentsByPositionsTests : DirectoryServiceTestsBas
     }
 
     [Fact]
-    public async Task GetTopByPositions_WithMoreThanFiveDepartments_ShouldReturnTopFiveByActivePositionCount()
+    public async Task GetTopByPositions_WithMoreThanFiveDepartments_ShouldReturnTopFive()
     {
         // Arrange
         var departments = new[]
@@ -29,98 +30,54 @@ public sealed class GetTopDepartmentsByPositionsTests : DirectoryServiceTestsBas
             await SeedDepartmentAsync("Golf Department", "golf"),
         };
 
-        for (var positionNumber = 0; positionNumber < 6; positionNumber++)
-        {
-            await SeedPositionAsync(
-                $"Active Position {positionNumber + 1}",
-                departments.Take(6 - positionNumber).ToArray());
-        }
+        for (var number = 0; number < 6; number++)
+            await SeedPositionAsync($"Active Position {number + 1}", departments.Take(6 - number).ToArray());
 
-        await SeedPositionAsync(
-            "Inactive Position",
-            [departments[0], departments[6]],
-            isActive: false);
-
-        var inactiveDepartmentId = await SeedDepartmentAsync(
-            "Inactive Department",
-            "inactive");
-
+        await SeedPositionAsync("Inactive Position", [departments[0], departments[6]], isActive: false);
+        var inactiveDepartmentId = await SeedDepartmentAsync("Inactive Department", "inactive");
         await ExecuteDbContextAsync(dbContext =>
             dbContext.Departments
                 .Where(department => department.Id == inactiveDepartmentId)
-                .ExecuteUpdateAsync(setters =>
-                    setters.SetProperty(department => department.IsActive, false)));
-
-        for (var positionNumber = 0; positionNumber < 7; positionNumber++)
-        {
-            await SeedPositionAsync(
-                $"Inactive Department Position {positionNumber + 1}",
-                [inactiveDepartmentId]);
-        }
-
-        var query = new GetTopDepartmentsByPositionsQuery();
+                .ExecuteUpdateAsync(setters => setters.SetProperty(department => department.IsActive, false)));
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteQueryAsync<
-            GetTopDepartmentsByPositionsQuery,
-            IReadOnlyList<TopDepartmentByPositionsDto>>(query);
+        var response = await client.GetAsync("/api/departments/top-positions");
+        var envelope = await response.Content
+            .ReadFromJsonAsync<Envelope<IReadOnlyList<TopDepartmentByPositionsDto>>>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(
-            result.IsFailure ? result.Error.GetMessage() : string.Empty);
-
-        result.Value.Should().HaveCount(5);
-        result.Value.Select(department => department.Slug)
-            .Should()
-            .Equal("alpha", "bravo", "charlie", "delta", "echo");
-        result.Value.Select(department => department.PositionsCount)
-            .Should()
-            .Equal(6, 5, 4, 3, 2);
-        result.Value.Should().NotContain(department =>
-            department.Id == inactiveDepartmentId.Value);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.Result.Should().HaveCount(5);
+        envelope.Result!.Select(department => department.Slug)
+            .Should().Equal("alpha", "bravo", "charlie", "delta", "echo");
+        envelope.Result.Select(department => department.PositionsCount)
+            .Should().Equal(6, 5, 4, 3, 2);
+        envelope.Result.Should().NotContain(department => department.Id == inactiveDepartmentId.Value);
     }
 
     [Fact]
-    public async Task GetTopByPositions_WithNoActivePositions_ShouldReturnDepartmentsWithZeroCount()
+    public async Task GetTopByPositions_WithNoActivePositions_ShouldReturnZeroCounts()
     {
         // Arrange
-        var emptyDepartmentId = await SeedDepartmentAsync(
-            "Empty Department",
-            "empty");
+        var emptyDepartmentId = await SeedDepartmentAsync("Empty Department", "empty");
         var inactivePositionDepartmentId = await SeedDepartmentAsync(
             "Inactive Position Department",
             "inactiveposition");
-
-        await SeedPositionAsync(
-            "Only Inactive Position",
-            [inactivePositionDepartmentId],
-            isActive: false);
-
-        var query = new GetTopDepartmentsByPositionsQuery();
+        await SeedPositionAsync("Only Inactive Position", [inactivePositionDepartmentId], isActive: false);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteQueryAsync<
-            GetTopDepartmentsByPositionsQuery,
-            IReadOnlyList<TopDepartmentByPositionsDto>>(query);
+        var response = await client.GetAsync("/api/departments/top-positions");
+        var envelope = await response.Content
+            .ReadFromJsonAsync<Envelope<IReadOnlyList<TopDepartmentByPositionsDto>>>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(
-            result.IsFailure ? result.Error.GetMessage() : string.Empty);
-
-        result.Value.Should().BeEquivalentTo(
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.Result.Should().BeEquivalentTo(
             [
-                new
-                {
-                    Id = emptyDepartmentId.Value,
-                    Slug = "empty",
-                    PositionsCount = 0L,
-                },
-                new
-                {
-                    Id = inactivePositionDepartmentId.Value,
-                    Slug = "inactiveposition",
-                    PositionsCount = 0L,
-                },
+                new { Id = emptyDepartmentId.Value, Slug = "empty", PositionsCount = 0L },
+                new { Id = inactivePositionDepartmentId.Value, Slug = "inactiveposition", PositionsCount = 0L },
             ],
             options => options.ExcludingMissingMembers());
     }

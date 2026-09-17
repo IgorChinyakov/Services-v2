@@ -1,12 +1,14 @@
-using DirectoryService.Application.Features.Departments.UpdateLocations;
-using DirectoryService.Domain.Shared;
+using System.Net;
+using System.Net.Http.Json;
+using DirectoryService.Contracts.Departments.Requests;
+using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
 namespace DirectoryService.IntegrationTests;
 
 [Collection(DirectoryServiceTestCollection.Name)]
-public class UpdateDepartmentLocationsTests : DirectoryServiceTestsBase
+public sealed class UpdateDepartmentLocationsTests : DirectoryServiceTestsBase
 {
     public UpdateDepartmentLocationsTests(DirectoryServiceWebFactory factory)
         : base(factory)
@@ -19,108 +21,92 @@ public class UpdateDepartmentLocationsTests : DirectoryServiceTestsBase
         // Arrange
         var oldLocationId = await SeedLocationAsync();
         var newLocationId = await SeedLocationAsync();
-        var departmentId = await SeedDepartmentAsync(
-            "Sales Department",
-            "sales",
-            locationIds: [oldLocationId]);
-        var command = new UpdateDepartmentLocationsCommand(
-            departmentId.Value,
-            [newLocationId.Value]);
+        var departmentId = await SeedDepartmentAsync("Sales Department", "sales", locationIds: [oldLocationId]);
+        using var client = CreateClient();
+        var request = new UpdateDepartmentLocationsRequest { LocationIds = [newLocationId.Value] };
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{departmentId.Value}/locations",
+            request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
-
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.IsError.Should().BeFalse();
         await ExecuteDbContextAsync(async dbContext =>
         {
             var department = await dbContext.Departments
-                .Include(x => x.DepartmentLocations)
-                .FirstAsync(x => x.Id == departmentId);
+                .Include(item => item.DepartmentLocations)
+                .FirstAsync(item => item.Id == departmentId);
 
-            department.DepartmentLocations
-                .Select(link => link.LocationId)
-                .Should()
-                .BeEquivalentTo([newLocationId]);
+            department.DepartmentLocations.Select(link => link.LocationId)
+                .Should().BeEquivalentTo([newLocationId]);
         });
     }
 
     [Fact]
-    public async Task UpdateDepartmentLocations_WithMissingDepartment_ShouldReturnNotFoundError()
+    public async Task UpdateDepartmentLocations_WithMissingDepartment_ShouldReturnNotFound()
     {
         // Arrange
         var locationId = await SeedLocationAsync();
-        var command = new UpdateDepartmentLocationsCommand(
-            Guid.NewGuid(),
-            [locationId.Value]);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{Guid.NewGuid()}/locations",
+            new UpdateDepartmentLocationsRequest { LocationIds = [locationId.Value] });
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "department.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "department.not_found");
     }
 
     [Fact]
-    public async Task UpdateDepartmentLocations_WithMissingLocation_ShouldReturnNotFoundErrorAndKeepOldLocations()
+    public async Task UpdateDepartmentLocations_WithMissingLocation_ShouldKeepOldLocations()
     {
         // Arrange
         var oldLocationId = await SeedLocationAsync();
-        var departmentId = await SeedDepartmentAsync(
-            "Sales Department",
-            "sales",
-            locationIds: [oldLocationId]);
-        var command = new UpdateDepartmentLocationsCommand(
-            departmentId.Value,
-            [Guid.NewGuid()]);
+        var departmentId = await SeedDepartmentAsync("Sales Department", "sales", locationIds: [oldLocationId]);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{departmentId.Value}/locations",
+            new UpdateDepartmentLocationsRequest { LocationIds = [Guid.NewGuid()] });
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "location.not_found" &&
-            message.InvalidField == nameof(UpdateDepartmentLocationsCommand.LocationIds));
-
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "location.not_found");
         await ExecuteDbContextAsync(async dbContext =>
         {
             var department = await dbContext.Departments
-                .Include(x => x.DepartmentLocations)
-                .FirstAsync(x => x.Id == departmentId);
+                .Include(item => item.DepartmentLocations)
+                .FirstAsync(item => item.Id == departmentId);
 
-            department.DepartmentLocations
-                .Select(link => link.LocationId)
-                .Should()
-                .BeEquivalentTo([oldLocationId]);
+            department.DepartmentLocations.Select(link => link.LocationId)
+                .Should().BeEquivalentTo([oldLocationId]);
         });
     }
 
     [Fact]
-    public async Task UpdateDepartmentLocations_WithDuplicateLocationIds_ShouldReturnValidationError()
+    public async Task UpdateDepartmentLocations_WithDuplicateIds_ShouldReturnBadRequest()
     {
         // Arrange
         var locationId = await SeedLocationAsync();
-        var departmentId = await SeedDepartmentAsync(
-            "Sales Department",
-            "sales",
-            locationIds: [locationId]);
-        var command = new UpdateDepartmentLocationsCommand(
-            departmentId.Value,
-            [locationId.Value, locationId.Value]);
+        var departmentId = await SeedDepartmentAsync("Sales Department", "sales", locationIds: [locationId]);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{departmentId.Value}/locations",
+            new UpdateDepartmentLocationsRequest { LocationIds = [locationId.Value, locationId.Value] });
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Validation, result.Error.GetMessage());
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.InvalidField == nameof(UpdateDepartmentLocationsCommand.LocationIds));
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        envelope!.Errors.Should().ContainSingle(error => error.InvalidField == "LocationIds");
     }
 }

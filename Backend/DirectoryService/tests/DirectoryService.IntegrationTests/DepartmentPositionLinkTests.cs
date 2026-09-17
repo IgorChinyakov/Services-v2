@@ -1,7 +1,7 @@
-using DirectoryService.Application.Features.Departments.AddPosition;
-using DirectoryService.Application.Features.Departments.RemovePosition;
+using System.Net;
+using System.Net.Http.Json;
 using DirectoryService.Domain.Entities;
-using DirectoryService.Domain.Shared;
+using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,19 +21,19 @@ public sealed class DepartmentPositionLinkTests : DirectoryServiceTestsBase
         // Arrange
         var departmentId = await SeedDepartmentAsync("Sales Department", "sales");
         var positionId = await SeedPositionAsync("Sales Manager", []);
-        var command = new AddDepartmentPositionCommand(departmentId.Value, positionId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PostAsync(
+            $"/api/departments/{departmentId.Value}/positions/{positionId.Value}",
+            null);
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
         await ExecuteDbContextAsync(async dbContext =>
         {
-            var linkExists = await dbContext.Set<DepartmentPosition>()
-                .AnyAsync(link => link.DepartmentId == departmentId && link.PositionId == positionId);
-
-            linkExists.Should().BeTrue();
+            (await dbContext.Set<DepartmentPosition>().AnyAsync(link =>
+                link.DepartmentId == departmentId && link.PositionId == positionId)).Should().BeTrue();
         });
     }
 
@@ -43,16 +43,17 @@ public sealed class DepartmentPositionLinkTests : DirectoryServiceTestsBase
         // Arrange
         var departmentId = await SeedDepartmentAsync("Sales Department", "sales");
         var positionId = await SeedPositionAsync("Sales Manager", [departmentId]);
-        var command = new AddDepartmentPositionCommand(departmentId.Value, positionId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PostAsync(
+            $"/api/departments/{departmentId.Value}/positions/{positionId.Value}",
+            null);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Conflict);
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "department.position.duplicate");
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "department.position.duplicate");
     }
 
     [Fact]
@@ -60,15 +61,17 @@ public sealed class DepartmentPositionLinkTests : DirectoryServiceTestsBase
     {
         // Arrange
         var departmentId = await SeedDepartmentAsync("Sales Department", "sales");
-        var command = new AddDepartmentPositionCommand(departmentId.Value, Guid.NewGuid());
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PostAsync(
+            $"/api/departments/{departmentId.Value}/positions/{Guid.NewGuid()}",
+            null);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "position.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "position.not_found");
     }
 
     [Fact]
@@ -77,38 +80,38 @@ public sealed class DepartmentPositionLinkTests : DirectoryServiceTestsBase
         // Arrange
         var departmentId = await SeedDepartmentAsync("Sales Department", "sales");
         var positionId = await SeedPositionAsync("Sales Manager", [departmentId]);
-        var command = new RemoveDepartmentPositionCommand(departmentId.Value, positionId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.DeleteAsync(
+            $"/api/departments/{departmentId.Value}/positions/{positionId.Value}");
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
         await ExecuteDbContextAsync(async dbContext =>
         {
-            (await dbContext.Set<DepartmentPosition>()
-                    .AnyAsync(link => link.DepartmentId == departmentId && link.PositionId == positionId))
-                .Should().BeFalse();
+            (await dbContext.Set<DepartmentPosition>().AnyAsync(link =>
+                link.DepartmentId == departmentId && link.PositionId == positionId)).Should().BeFalse();
             (await dbContext.Departments.AnyAsync(item => item.Id == departmentId)).Should().BeTrue();
             (await dbContext.Positions.AnyAsync(item => item.Id == positionId)).Should().BeTrue();
         });
     }
 
     [Fact]
-    public async Task RemoveDepartmentPosition_WhenLinkDoesNotExist_ShouldReturnClearNotFoundError()
+    public async Task RemoveDepartmentPosition_WhenLinkDoesNotExist_ShouldReturnNotFound()
     {
         // Arrange
         var departmentId = await SeedDepartmentAsync("Sales Department", "sales");
         var positionId = await SeedPositionAsync("Sales Manager", []);
-        var command = new RemoveDepartmentPositionCommand(departmentId.Value, positionId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.DeleteAsync(
+            $"/api/departments/{departmentId.Value}/positions/{positionId.Value}");
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound);
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "department.position.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "department.position.not_found");
     }
 }

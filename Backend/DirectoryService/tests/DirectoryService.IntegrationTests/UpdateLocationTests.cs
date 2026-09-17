@@ -1,7 +1,8 @@
-using DirectoryService.Application.Features.Locations.Update;
+using System.Net;
+using System.Net.Http.Json;
 using DirectoryService.Contracts.Common;
-using DirectoryService.Domain.Entities.Ids;
-using DirectoryService.Domain.Shared;
+using DirectoryService.Contracts.Locations.Requests;
+using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,35 +17,28 @@ public sealed class UpdateLocationTests : DirectoryServiceTestsBase
     }
 
     [Fact]
-    public async Task UpdateLocation_WithValidData_ShouldChangeNameAndAddress()
+    public async Task UpdateLocation_WithValidData_ShouldReturnOkAndChangeLocation()
     {
         // Arrange
         var locationId = await SeedLocationAsync("Old Office");
-        var command = new UpdateLocationCommand(
-            locationId.Value,
-            "New Office",
-            new AddressDto
-            {
-                City = "Yerevan",
-                Street = "Northern Avenue",
-                House = "10",
-                Apartment = "Office 5",
-            });
+        using var client = CreateClient();
+        var request = CreateRequest("New Office");
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PatchAsJsonAsync($"/api/locations/{locationId.Value}", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.IsError.Should().BeFalse();
         await ExecuteDbContextAsync(async dbContext =>
         {
             var location = await dbContext.Locations.FirstAsync(item => item.Id == locationId);
-
-            location.Name.Value.Should().Be(command.Name);
-            location.Address.City.Should().Be(command.Address.City);
-            location.Address.Street.Should().Be(command.Address.Street);
-            location.Address.House.Should().Be(command.Address.House);
-            location.Address.Apartment.Should().Be(command.Address.Apartment);
+            location.Name.Value.Should().Be(request.Name);
+            location.Address.City.Should().Be(request.Address.City);
+            location.Address.Street.Should().Be(request.Address.Street);
+            location.Address.House.Should().Be(request.Address.House);
+            location.Address.Apartment.Should().Be(request.Address.Apartment);
         });
     }
 
@@ -54,24 +48,17 @@ public sealed class UpdateLocationTests : DirectoryServiceTestsBase
         // Arrange
         await SeedLocationAsync("Main Office");
         var locationId = await SeedLocationAsync("Branch Office");
-        var command = new UpdateLocationCommand(
-            locationId.Value,
-            "Main Office",
-            new AddressDto
-            {
-                City = "Yerevan",
-                Street = "Aram Street",
-                House = "10",
-                Apartment = "20",
-            });
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PatchAsJsonAsync(
+            $"/api/locations/{locationId.Value}",
+            CreateRequest("Main Office"));
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Conflict);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "location.name.duplicate");
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "location.name.duplicate");
         await ExecuteDbContextAsync(async dbContext =>
         {
             var location = await dbContext.Locations.FirstAsync(item => item.Id == locationId);
@@ -87,9 +74,7 @@ public sealed class UpdateLocationTests : DirectoryServiceTestsBase
         var locationId = await SeedLocationAsync("Branch Office");
         var occupiedAddress = await ExecuteDbContextAsync(async dbContext =>
         {
-            var location = await dbContext.Locations
-                .FirstAsync(item => item.Id == occupiedLocationId);
-
+            var location = await dbContext.Locations.FirstAsync(item => item.Id == occupiedLocationId);
             return new AddressDto
             {
                 City = location.Address.City,
@@ -98,18 +83,20 @@ public sealed class UpdateLocationTests : DirectoryServiceTestsBase
                 Apartment = location.Address.Apartment,
             };
         });
-        var command = new UpdateLocationCommand(
-            locationId.Value,
-            "Updated Branch Office",
-            occupiedAddress);
+        using var client = CreateClient();
+        var request = new UpdateLocationRequest
+        {
+            Name = "Updated Branch Office",
+            Address = occupiedAddress,
+        };
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PatchAsJsonAsync($"/api/locations/{locationId.Value}", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Conflict);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "location.address.duplicate");
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "location.address.duplicate");
         await ExecuteDbContextAsync(async dbContext =>
         {
             var location = await dbContext.Locations.FirstAsync(item => item.Id == locationId);
@@ -121,23 +108,29 @@ public sealed class UpdateLocationTests : DirectoryServiceTestsBase
     public async Task UpdateLocation_WhenLocationDoesNotExist_ShouldReturnNotFound()
     {
         // Arrange
-        var command = new UpdateLocationCommand(
-            Guid.NewGuid(),
-            "New Office",
-            new AddressDto
-            {
-                City = "Yerevan",
-                Street = "Aram Street",
-                House = "10",
-                Apartment = "20",
-            });
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PatchAsJsonAsync(
+            $"/api/locations/{Guid.NewGuid()}",
+            CreateRequest("New Office"));
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "location.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "location.not_found");
     }
+
+    private static UpdateLocationRequest CreateRequest(string name) =>
+        new()
+        {
+            Name = name,
+            Address = new AddressDto
+            {
+                City = "Yerevan",
+                Street = "Northern Avenue",
+                House = "10",
+                Apartment = "Office 5",
+            },
+        };
 }

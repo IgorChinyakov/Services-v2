@@ -1,16 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
-using CSharpFunctionalExtensions;
-using DirectoryService.Application.Abstractions.Handlers;
-using DirectoryService.Application.Features.Locations.Create;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Locations.Requests;
-using DirectoryService.Domain.Shared;
 using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace DirectoryService.IntegrationTests;
 
@@ -112,14 +107,14 @@ public sealed class ApiResponseContractTests : DirectoryServiceTestsBase
         {
             builder.ConfigureTestServices(services =>
             {
-                services.RemoveAll<ICommandHandler<CreateLocationCommand, Guid>>();
-                services.AddScoped<ICommandHandler<CreateLocationCommand, Guid>, ThrowingCreateLocationHandler>();
+                services.AddControllers()
+                    .AddApplicationPart(typeof(ThrowingTestController).Assembly);
             });
         });
         using var client = customFactory.CreateClient();
 
         // Act
-        var response = await client.PostAsJsonAsync("/api/locations", CreateValidLocationRequest());
+        var response = await client.GetAsync("/test/unhandled-exception");
         var responseBody = await response.Content.ReadAsStringAsync();
         var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
@@ -127,7 +122,7 @@ public sealed class ApiResponseContractTests : DirectoryServiceTestsBase
         response.StatusCode.Should().Be(HttpStatusCode.InternalServerError);
         envelope.Should().NotBeNull();
         envelope!.Errors.Should().ContainSingle(error => error.Code == "failure");
-        responseBody.Should().NotContain(ThrowingCreateLocationHandler.SensitiveExceptionMessage);
+        responseBody.Should().NotContain(ThrowingTestController.SensitiveExceptionMessage);
     }
 
     [Fact]
@@ -160,15 +155,4 @@ public sealed class ApiResponseContractTests : DirectoryServiceTestsBase
             },
         };
 
-    private sealed class ThrowingCreateLocationHandler : ICommandHandler<CreateLocationCommand, Guid>
-    {
-        public const string SensitiveExceptionMessage = "Database credentials leaked";
-
-        public Task<Result<Guid, Error>> Handle(
-            CreateLocationCommand command,
-            CancellationToken cancellationToken)
-        {
-            throw new InvalidOperationException(SensitiveExceptionMessage);
-        }
-    }
 }

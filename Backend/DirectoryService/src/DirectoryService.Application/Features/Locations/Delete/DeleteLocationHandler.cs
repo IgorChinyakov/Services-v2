@@ -59,7 +59,7 @@ public sealed class DeleteLocationHandler : ICommandHandler<DeleteLocationComman
             return saveResult.Error;
 
         _logger.LogInformation(
-            "Location deleted successfully. LocationId {LocationId}",
+            "Location soft deleted successfully. LocationId {LocationId}",
             command.LocationId);
 
         await _cacheInvalidator.InvalidateAsync(

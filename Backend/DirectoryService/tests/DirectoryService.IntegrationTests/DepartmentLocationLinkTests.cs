@@ -1,7 +1,7 @@
-using DirectoryService.Application.Features.Departments.AddLocation;
-using DirectoryService.Application.Features.Departments.RemoveLocation;
+using System.Net;
+using System.Net.Http.Json;
 using DirectoryService.Domain.Entities;
-using DirectoryService.Domain.Shared;
+using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,19 +21,21 @@ public sealed class DepartmentLocationLinkTests : DirectoryServiceTestsBase
         // Arrange
         var departmentId = await SeedDepartmentAsync("Sales Department", "sales", locationIds: []);
         var locationId = await SeedLocationAsync();
-        var command = new AddDepartmentLocationCommand(departmentId.Value, locationId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PostAsync(
+            $"/api/departments/{departmentId.Value}/locations/{locationId.Value}",
+            null);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.IsError.Should().BeFalse();
         await ExecuteDbContextAsync(async dbContext =>
         {
-            var linkExists = await dbContext.Set<DepartmentLocation>()
-                .AnyAsync(link => link.DepartmentId == departmentId && link.LocationId == locationId);
-
-            linkExists.Should().BeTrue();
+            (await dbContext.Set<DepartmentLocation>().AnyAsync(link =>
+                link.DepartmentId == departmentId && link.LocationId == locationId)).Should().BeTrue();
         });
     }
 
@@ -42,58 +44,59 @@ public sealed class DepartmentLocationLinkTests : DirectoryServiceTestsBase
     {
         // Arrange
         var locationId = await SeedLocationAsync();
-        var departmentId = await SeedDepartmentAsync(
-            "Sales Department",
-            "sales",
-            locationIds: [locationId]);
-        var command = new AddDepartmentLocationCommand(departmentId.Value, locationId.Value);
+        var departmentId = await SeedDepartmentAsync("Sales Department", "sales", locationIds: [locationId]);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PostAsync(
+            $"/api/departments/{departmentId.Value}/locations/{locationId.Value}",
+            null);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Conflict);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "department.location.duplicate");
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "department.location.duplicate");
         await ExecuteDbContextAsync(async dbContext =>
         {
-            var linksCount = await dbContext.Set<DepartmentLocation>()
-                .CountAsync(link => link.DepartmentId == departmentId && link.LocationId == locationId);
-
-            linksCount.Should().Be(1);
+            (await dbContext.Set<DepartmentLocation>().CountAsync(link =>
+                link.DepartmentId == departmentId && link.LocationId == locationId)).Should().Be(1);
         });
     }
 
     [Fact]
-    public async Task AddDepartmentLocation_WhenLocationDoesNotExist_ShouldReturnLocationNotFound()
+    public async Task AddDepartmentLocation_WhenLocationDoesNotExist_ShouldReturnNotFound()
     {
         // Arrange
         var departmentId = await SeedDepartmentAsync("Sales Department", "sales", locationIds: []);
-        var command = new AddDepartmentLocationCommand(departmentId.Value, Guid.NewGuid());
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PostAsync(
+            $"/api/departments/{departmentId.Value}/locations/{Guid.NewGuid()}",
+            null);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "location.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "location.not_found");
     }
 
     [Fact]
-    public async Task AddDepartmentLocation_WhenDepartmentDoesNotExist_ShouldReturnDepartmentNotFound()
+    public async Task AddDepartmentLocation_WhenDepartmentDoesNotExist_ShouldReturnNotFound()
     {
         // Arrange
         var locationId = await SeedLocationAsync();
-        var command = new AddDepartmentLocationCommand(Guid.NewGuid(), locationId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PostAsync(
+            $"/api/departments/{Guid.NewGuid()}/locations/{locationId.Value}",
+            null);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "department.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "department.not_found");
     }
 
     [Fact]
@@ -101,32 +104,25 @@ public sealed class DepartmentLocationLinkTests : DirectoryServiceTestsBase
     {
         // Arrange
         var locationId = await SeedLocationAsync();
-        var departmentId = await SeedDepartmentAsync(
-            "Sales Department",
-            "sales",
-            locationIds: [locationId]);
-        var command = new RemoveDepartmentLocationCommand(departmentId.Value, locationId.Value);
+        var departmentId = await SeedDepartmentAsync("Sales Department", "sales", locationIds: [locationId]);
+        using var client = CreateClient();
+        var endpoint = $"/api/departments/{departmentId.Value}/locations/{locationId.Value}";
 
         // Act
-        var firstResult = await ExecuteCommandAsync(command);
-        var secondResult = await ExecuteCommandAsync(command);
+        var firstResponse = await client.DeleteAsync(endpoint);
+        var secondResponse = await client.DeleteAsync(endpoint);
+        var secondEnvelope = await secondResponse.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        firstResult.IsSuccess.Should().BeTrue(firstResult.IsFailure ? firstResult.Error.GetMessage() : string.Empty);
-        secondResult.IsFailure.Should().BeTrue();
-        secondResult.Error.Type.Should().Be(ErrorType.NotFound);
-        secondResult.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "department.location.not_found");
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        secondEnvelope!.Errors.Should().ContainSingle(error => error.Code == "department.location.not_found");
         await ExecuteDbContextAsync(async dbContext =>
         {
-            var linkExists = await dbContext.Set<DepartmentLocation>()
-                .AnyAsync(link => link.DepartmentId == departmentId && link.LocationId == locationId);
-            var departmentExists = await dbContext.Departments.AnyAsync(item => item.Id == departmentId);
-            var locationExists = await dbContext.Locations.AnyAsync(item => item.Id == locationId);
-
-            linkExists.Should().BeFalse();
-            departmentExists.Should().BeTrue();
-            locationExists.Should().BeTrue();
+            (await dbContext.Set<DepartmentLocation>().AnyAsync(link =>
+                link.DepartmentId == departmentId && link.LocationId == locationId)).Should().BeFalse();
+            (await dbContext.Departments.AnyAsync(item => item.Id == departmentId)).Should().BeTrue();
+            (await dbContext.Locations.AnyAsync(item => item.Id == locationId)).Should().BeTrue();
         });
     }
 }

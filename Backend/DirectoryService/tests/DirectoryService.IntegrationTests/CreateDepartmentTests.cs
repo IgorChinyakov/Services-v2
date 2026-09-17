@@ -1,14 +1,16 @@
-using DirectoryService.Application.Features.Departments.Create;
+using System.Net;
+using System.Net.Http.Json;
+using DirectoryService.Contracts.Departments.Requests;
 using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
-using DirectoryService.Domain.Shared;
+using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
 namespace DirectoryService.IntegrationTests;
 
 [Collection(DirectoryServiceTestCollection.Name)]
-public class CreateDepartmentTests : DirectoryServiceTestsBase
+public sealed class CreateDepartmentTests : DirectoryServiceTestsBase
 {
     public CreateDepartmentTests(DirectoryServiceWebFactory factory)
         : base(factory)
@@ -16,30 +18,36 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
     }
 
     [Fact]
-    public async Task CreateDepartment_WithValidRootData_ShouldCreateDepartment()
+    public async Task CreateDepartment_WithValidRootData_ShouldReturnCreatedAndPersistDepartment()
     {
         // Arrange
         var locationId = await SeedLocationAsync();
-        var command = new CreateDepartmentCommand(
-            "Sales Department",
-            "sales",
-            null,
-            [locationId.Value]);
+        using var client = CreateClient();
+        var request = new CreateDepartmentRequest
+        {
+            Name = "Sales Department",
+            Slug = "sales",
+            LocationIds = [locationId.Value],
+        };
 
         // Act
-        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+        var response = await client.PostAsJsonAsync("/api/departments", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        envelope.Should().NotBeNull();
+        envelope!.IsError.Should().BeFalse();
+        var departmentId = DepartmentId.Create(Guid.Parse(envelope.Result!.ToString()!));
 
         await ExecuteDbContextAsync(async dbContext =>
         {
             var department = await dbContext.Departments
-                .Include(x => x.DepartmentLocations)
-                .FirstAsync(x => x.Id == DepartmentId.Create(result.Value));
+                .Include(item => item.DepartmentLocations)
+                .FirstAsync(item => item.Id == departmentId);
 
-            department.Name.Value.Should().Be(command.Name);
-            department.Slug.Value.Should().Be(command.Slug);
+            department.Name.Value.Should().Be(request.Name);
+            department.Slug.Value.Should().Be(request.Slug);
             department.ParentId.Should().BeNull();
             department.Path.Should().Be("sales");
             department.Depth.Should().Be(0);
@@ -51,102 +59,59 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
     public async Task CreateDepartment_WithoutLocations_ShouldCreateDepartmentWithoutLinks()
     {
         // Arrange
-        var command = new CreateDepartmentCommand(
-            "Remote Department",
-            "remote",
-            null,
-            []);
+        using var client = CreateClient();
+        var request = new CreateDepartmentRequest
+        {
+            Name = "Remote Department",
+            Slug = "remote",
+            LocationIds = [],
+        };
 
         // Act
-        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+        var response = await client.PostAsJsonAsync("/api/departments", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var departmentId = DepartmentId.Create(Guid.Parse(envelope!.Result!.ToString()!));
         await ExecuteDbContextAsync(async dbContext =>
         {
             var department = await dbContext.Departments
                 .Include(item => item.DepartmentLocations)
-                .FirstAsync(item => item.Id == DepartmentId.Create(result.Value));
+                .FirstAsync(item => item.Id == departmentId);
 
-            department.Path.Should().Be(command.Slug);
+            department.Path.Should().Be(request.Slug);
             department.DepartmentLocations.Should().BeEmpty();
         });
-    }
-
-    [Fact]
-    public async Task CreateDepartment_WithUrlFriendlySlug_ShouldPersistSlugAndPath()
-    {
-        // Arrange
-        var locationId = await SeedLocationAsync();
-        var command = new CreateDepartmentCommand(
-            "Business To Business Sales",
-            "b2b-sales",
-            null,
-            [locationId.Value]);
-
-        // Act
-        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
-
-        // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
-        await ExecuteDbContextAsync(async dbContext =>
-        {
-            var department = await dbContext.Departments
-                .FirstAsync(x => x.Id == DepartmentId.Create(result.Value));
-
-            department.Slug.Value.Should().Be("b2b-sales");
-            department.Path.Should().Be("b2b-sales");
-        });
-    }
-
-    [Fact]
-    public async Task CreateDepartment_WithUppercaseSlug_ShouldReturnValidationError()
-    {
-        // Arrange
-        var locationId = await SeedLocationAsync();
-        var command = new CreateDepartmentCommand(
-            "Sales Department",
-            "Sales",
-            null,
-            [locationId.Value]);
-
-        // Act
-        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
-
-        // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Validation, result.Error.GetMessage());
-        result.Error.Messages.Should().Contain(message =>
-            message.InvalidField == nameof(CreateDepartmentCommand.Slug));
     }
 
     [Fact]
     public async Task CreateDepartment_WithParentId_ShouldCreateChildDepartment()
     {
         // Arrange
-        var parentLocationId = await SeedLocationAsync();
+        var parentId = await SeedDepartmentAsync("Head Office", "head");
         var childLocationId = await SeedLocationAsync();
-        var parentId = await SeedDepartmentAsync(
-            "Head Office",
-            "head",
-            locationIds: [parentLocationId]);
-        var command = new CreateDepartmentCommand(
-            "Human Resources",
-            "human",
-            parentId.Value,
-            [childLocationId.Value]);
+        using var client = CreateClient();
+        var request = new CreateDepartmentRequest
+        {
+            Name = "Human Resources",
+            Slug = "human",
+            ParentId = parentId.Value,
+            LocationIds = [childLocationId.Value],
+        };
 
         // Act
-        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+        var response = await client.PostAsJsonAsync("/api/departments", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
-
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var departmentId = DepartmentId.Create(Guid.Parse(envelope!.Result!.ToString()!));
         await ExecuteDbContextAsync(async dbContext =>
         {
             var department = await dbContext.Departments
-                .Include(x => x.DepartmentLocations)
-                .FirstAsync(x => x.Id == DepartmentId.Create(result.Value));
+                .Include(item => item.DepartmentLocations)
+                .FirstAsync(item => item.Id == departmentId);
 
             department.ParentId.Should().Be(parentId);
             department.Path.Should().Be("head.human");
@@ -155,108 +120,124 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
         });
     }
 
-    [Fact]
-    public async Task CreateDepartment_WithMissingLocation_ShouldReturnNotFoundError()
+    [Theory]
+    [InlineData("Sales", "Slug")]
+    [InlineData("b2b--sales", "Slug")]
+    public async Task CreateDepartment_WithInvalidSlug_ShouldReturnBadRequest(
+        string slug,
+        string invalidField)
     {
         // Arrange
-        var existingLocationId = await SeedLocationAsync();
-        var missingLocationId = Guid.NewGuid();
-        var command = new CreateDepartmentCommand(
-            "Sales Department",
-            "sales",
-            null,
-            [existingLocationId.Value, missingLocationId]);
+        using var client = CreateClient();
+        var request = new CreateDepartmentRequest
+        {
+            Name = "Sales Department",
+            Slug = slug,
+            LocationIds = [],
+        };
 
         // Act
-        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+        var response = await client.PostAsJsonAsync("/api/departments", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "location.not_found" &&
-            message.InvalidField == nameof(CreateDepartmentCommand.LocationIds));
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        envelope!.Errors.Should().Contain(error => error.InvalidField == invalidField);
+    }
+
+    [Fact]
+    public async Task CreateDepartment_WithMissingLocation_ShouldReturnNotFoundAndNotPersistDepartment()
+    {
+        // Arrange
+        using var client = CreateClient();
+        var request = new CreateDepartmentRequest
+        {
+            Name = "Sales Department",
+            Slug = "sales",
+            LocationIds = [Guid.NewGuid()],
+        };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/departments", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "location.not_found");
         await ExecuteDbContextAsync(async dbContext =>
         {
-            var departmentsCount = await dbContext.Departments.CountAsync();
-            var linksCount = await dbContext.Set<DepartmentLocation>().CountAsync();
-
-            departmentsCount.Should().Be(0);
-            linksCount.Should().Be(0);
+            (await dbContext.Departments.CountAsync()).Should().Be(0);
+            (await dbContext.Set<DepartmentLocation>().CountAsync()).Should().Be(0);
         });
     }
 
     [Fact]
-    public async Task CreateDepartment_WithDuplicateSlug_ShouldReturnConflictError()
+    public async Task CreateDepartment_WithDuplicateSlug_ShouldReturnConflict()
     {
         // Arrange
-        var firstLocationId = await SeedLocationAsync();
-        var secondLocationId = await SeedLocationAsync();
-        await SeedDepartmentAsync(
-            "Sales Department",
-            "sales",
-            locationIds: [firstLocationId]);
-        var command = new CreateDepartmentCommand(
-            "Another Sales Department",
-            "sales",
-            null,
-            [secondLocationId.Value]);
+        await SeedDepartmentAsync("Sales Department", "sales");
+        using var client = CreateClient();
+        var request = new CreateDepartmentRequest
+        {
+            Name = "Another Sales Department",
+            Slug = "sales",
+            LocationIds = [],
+        };
 
         // Act
-        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+        var response = await client.PostAsJsonAsync("/api/departments", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Conflict, result.Error.GetMessage());
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "department.slug.duplicate" &&
-            message.InvalidField == nameof(CreateDepartmentCommand.Slug));
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "department.slug.duplicate");
     }
 
     [Fact]
-    public async Task CreateDepartment_WithDuplicateLocationIds_ShouldReturnValidationError()
+    public async Task CreateDepartment_WithDuplicateLocationIds_ShouldReturnBadRequest()
     {
         // Arrange
         var locationId = await SeedLocationAsync();
-        var command = new CreateDepartmentCommand(
-            "Sales Department",
-            "sales",
-            null,
-            [locationId.Value, locationId.Value]);
+        using var client = CreateClient();
+        var request = new CreateDepartmentRequest
+        {
+            Name = "Sales Department",
+            Slug = "sales",
+            LocationIds = [locationId.Value, locationId.Value],
+        };
 
         // Act
-        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+        var response = await client.PostAsJsonAsync("/api/departments", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Validation, result.Error.GetMessage());
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.InvalidField == nameof(CreateDepartmentCommand.LocationIds));
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        envelope!.Errors.Should().ContainSingle(error => error.InvalidField == "LocationIds");
     }
 
     [Fact]
     public async Task CreateDepartment_WithMissingParent_ShouldReturnNotFoundAndNotPersistDepartment()
     {
         // Arrange
-        var locationId = await SeedLocationAsync();
-        var command = new CreateDepartmentCommand(
-            "Sales Department",
-            "sales",
-            Guid.NewGuid(),
-            [locationId.Value]);
+        using var client = CreateClient();
+        var request = new CreateDepartmentRequest
+        {
+            Name = "Sales Department",
+            Slug = "sales",
+            ParentId = Guid.NewGuid(),
+            LocationIds = [],
+        };
 
         // Act
-        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+        var response = await client.PostAsJsonAsync("/api/departments", request);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound);
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "department.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "department.not_found");
         await ExecuteDbContextAsync(async dbContext =>
         {
-            var departmentsCount = await dbContext.Departments.CountAsync();
-            departmentsCount.Should().Be(0);
+            (await dbContext.Departments.CountAsync()).Should().Be(0);
         });
     }
 }

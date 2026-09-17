@@ -1,8 +1,5 @@
-using CSharpFunctionalExtensions;
-using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
-using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,6 +34,8 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
     {
         await _resetDatabase();
     }
+
+    protected HttpClient CreateClient() => _factory.CreateClient();
 
     protected async Task<TResult> ExecuteScopedAsync<TResult>(
         Func<IServiceProvider, Task<TResult>> action)
@@ -78,45 +77,6 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
     protected Task<long> GetRedisDatabaseSizeAsync()
     {
         return _factory.GetRedisDatabaseSizeAsync();
-    }
-
-    protected Task<Result<TResponse, Error>> ExecuteCommandAsync<TCommand, TResponse>(
-        TCommand command,
-        CancellationToken cancellationToken = default)
-        where TCommand : ICommand
-    {
-        return ExecuteScopedAsync(services =>
-        {
-            var handler = services.GetRequiredService<ICommandHandler<TCommand, TResponse>>();
-
-            return handler.Handle(command, cancellationToken);
-        });
-    }
-
-    protected Task<UnitResult<Error>> ExecuteCommandAsync<TCommand>(
-        TCommand command,
-        CancellationToken cancellationToken = default)
-        where TCommand : ICommand
-    {
-        return ExecuteScopedAsync(services =>
-        {
-            var handler = services.GetRequiredService<ICommandHandler<TCommand>>();
-
-            return handler.Handle(command, cancellationToken);
-        });
-    }
-
-    protected Task<Result<TResponse, Error>> ExecuteQueryAsync<TQuery, TResponse>(
-        TQuery query,
-        CancellationToken cancellationToken = default)
-        where TQuery : IQuery
-    {
-        return ExecuteScopedAsync(services =>
-        {
-            var handler = services.GetRequiredService<IQueryHandler<TQuery, TResponse>>();
-
-            return handler.HandleAsync(query, cancellationToken);
-        });
     }
 
     protected async Task<LocationId> SeedLocationAsync(string? name = null)

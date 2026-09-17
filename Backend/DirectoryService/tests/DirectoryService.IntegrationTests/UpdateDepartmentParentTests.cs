@@ -1,13 +1,15 @@
-using DirectoryService.Application.Features.Departments.UpdateParent;
+using System.Net;
+using System.Net.Http.Json;
+using DirectoryService.Contracts.Departments.Requests;
 using DirectoryService.Domain.Entities.Ids;
-using DirectoryService.Domain.Shared;
+using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
 namespace DirectoryService.IntegrationTests;
 
 [Collection(DirectoryServiceTestCollection.Name)]
-public class UpdateDepartmentParentTests : DirectoryServiceTestsBase
+public sealed class UpdateDepartmentParentTests : DirectoryServiceTestsBase
 {
     public UpdateDepartmentParentTests(DirectoryServiceWebFactory factory)
         : base(factory)
@@ -15,146 +17,121 @@ public class UpdateDepartmentParentTests : DirectoryServiceTestsBase
     }
 
     [Fact]
-    public async Task UpdateDepartmentParent_WithValidParent_ShouldMoveDepartmentSubtree()
+    public async Task UpdateDepartmentParent_WithValidParent_ShouldMoveEntireSubtree()
     {
         // Arrange
         var hqId = await SeedDepartmentAsync("Head Office", "head");
         var salesId = await SeedDepartmentAsync("Sales Department", "sales", hqId);
         var regionalId = await SeedDepartmentAsync("Regional Department", "regional", salesId);
         var southId = await SeedDepartmentAsync("South Department", "south", regionalId);
-        var command = new UpdateDepartmentParentCommand(
-            regionalId.Value,
-            hqId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{regionalId.Value}/parent",
+            new UpdateDepartmentParentRequest { ParentId = hqId.Value });
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
-
-        await ExecuteDbContextAsync(async dbContext =>
-        {
-            var hq = await dbContext.Departments.FirstAsync(x => x.Id == hqId);
-            var sales = await dbContext.Departments.FirstAsync(x => x.Id == salesId);
-            var regional = await dbContext.Departments.FirstAsync(x => x.Id == regionalId);
-            var south = await dbContext.Departments.FirstAsync(x => x.Id == southId);
-
-            hq.Path.Should().Be("head");
-            hq.Depth.Should().Be(0);
-            sales.Path.Should().Be("head.sales");
-            sales.Depth.Should().Be(1);
-            regional.ParentId.Should().Be(hqId);
-            regional.Path.Should().Be("head.regional");
-            regional.Depth.Should().Be(1);
-            south.ParentId.Should().Be(regionalId);
-            south.Path.Should().Be("head.regional.south");
-            south.Depth.Should().Be(2);
-        });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.IsError.Should().BeFalse();
+        await AssertDepartmentAsync(regionalId, hqId, "head.regional", 1);
+        await AssertDepartmentAsync(southId, regionalId, "head.regional.south", 2);
     }
 
     [Fact]
-    public async Task UpdateDepartmentParent_WithNullParent_ShouldMoveDepartmentSubtreeToRoot()
+    public async Task UpdateDepartmentParent_WithNullParent_ShouldMoveEntireSubtreeToRoot()
     {
         // Arrange
         var hqId = await SeedDepartmentAsync("Head Office", "head");
         var regionalId = await SeedDepartmentAsync("Regional Department", "regional", hqId);
         var southId = await SeedDepartmentAsync("South Department", "south", regionalId);
-        var command = new UpdateDepartmentParentCommand(
-            regionalId.Value,
-            null);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{regionalId.Value}/parent",
+            new UpdateDepartmentParentRequest { ParentId = null });
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
-
-        await ExecuteDbContextAsync(async dbContext =>
-        {
-            var regional = await dbContext.Departments.FirstAsync(x => x.Id == regionalId);
-            var south = await dbContext.Departments.FirstAsync(x => x.Id == southId);
-
-            regional.ParentId.Should().BeNull();
-            regional.Path.Should().Be("regional");
-            regional.Depth.Should().Be(0);
-            south.ParentId.Should().Be(regionalId);
-            south.Path.Should().Be("regional.south");
-            south.Depth.Should().Be(1);
-        });
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        await AssertDepartmentAsync(regionalId, null, "regional", 0);
+        await AssertDepartmentAsync(southId, regionalId, "regional.south", 1);
     }
 
     [Fact]
-    public async Task UpdateDepartmentParent_WithDescendantParent_ShouldReturnConflictAndKeepTreeUnchanged()
+    public async Task UpdateDepartmentParent_WithDescendantParent_ShouldReturnConflictAndKeepTree()
     {
         // Arrange
         var hqId = await SeedDepartmentAsync("Head Office", "head");
         var salesId = await SeedDepartmentAsync("Sales Department", "sales", hqId);
         var regionalId = await SeedDepartmentAsync("Regional Department", "regional", salesId);
         var southId = await SeedDepartmentAsync("South Department", "south", regionalId);
-        var command = new UpdateDepartmentParentCommand(
-            salesId.Value,
-            southId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{salesId.Value}/parent",
+            new UpdateDepartmentParentRequest { ParentId = southId.Value });
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Conflict, result.Error.GetMessage());
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "department.parent.descendant");
-
-        await ExecuteDbContextAsync(async dbContext =>
-        {
-            var sales = await dbContext.Departments.FirstAsync(x => x.Id == salesId);
-            var regional = await dbContext.Departments.FirstAsync(x => x.Id == regionalId);
-            var south = await dbContext.Departments.FirstAsync(x => x.Id == southId);
-
-            sales.ParentId.Should().Be(hqId);
-            sales.Path.Should().Be("head.sales");
-            sales.Depth.Should().Be(1);
-            regional.ParentId.Should().Be(salesId);
-            regional.Path.Should().Be("head.sales.regional");
-            regional.Depth.Should().Be(2);
-            south.ParentId.Should().Be(regionalId);
-            south.Path.Should().Be("head.sales.regional.south");
-            south.Depth.Should().Be(3);
-        });
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "department.parent.descendant");
+        await AssertDepartmentAsync(salesId, hqId, "head.sales", 1);
+        await AssertDepartmentAsync(regionalId, salesId, "head.sales.regional", 2);
+        await AssertDepartmentAsync(southId, regionalId, "head.sales.regional.south", 3);
     }
 
     [Fact]
-    public async Task UpdateDepartmentParent_WithMissingParent_ShouldReturnNotFoundError()
+    public async Task UpdateDepartmentParent_WithMissingParent_ShouldReturnNotFound()
     {
         // Arrange
         var departmentId = await SeedDepartmentAsync("Sales Department", "sales");
-        var command = new UpdateDepartmentParentCommand(
-            departmentId.Value,
-            Guid.NewGuid());
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{departmentId.Value}/parent",
+            new UpdateDepartmentParentRequest { ParentId = Guid.NewGuid() });
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound, result.Error.GetMessage());
-        result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "department.parent.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "department.parent.not_found");
     }
 
     [Fact]
-    public async Task UpdateDepartmentParent_WithSameParentAndDepartmentIds_ShouldReturnValidationError()
+    public async Task UpdateDepartmentParent_WithSameIds_ShouldReturnBadRequest()
     {
         // Arrange
         var departmentId = DepartmentId.New();
-        var command = new UpdateDepartmentParentCommand(
-            departmentId.Value,
-            departmentId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{departmentId.Value}/parent",
+            new UpdateDepartmentParentRequest { ParentId = departmentId.Value });
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.Validation, result.Error.GetMessage());
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    private Task AssertDepartmentAsync(
+        DepartmentId departmentId,
+        DepartmentId? parentId,
+        string path,
+        short depth)
+    {
+        return ExecuteDbContextAsync(async dbContext =>
+        {
+            var department = await dbContext.Departments
+                .AsNoTracking()
+                .FirstAsync(item => item.Id == departmentId);
+
+            department.ParentId.Should().Be(parentId);
+            department.Path.Should().Be(path);
+            department.Depth.Should().Be(depth);
+        });
     }
 }

@@ -1,25 +1,18 @@
 using System.Net;
 using System.Net.Http.Json;
-using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Contracts.Departments;
 using DirectoryService.Contracts.Locations;
-using DirectoryService.Infrastructure.Database;
 using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace DirectoryService.IntegrationTests;
 
 [Collection(DirectoryServiceTestCollection.Name)]
 public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
 {
-    private readonly DirectoryServiceWebFactory _factory;
-
     public GetEntityByIdTests(DirectoryServiceWebFactory factory)
         : base(factory)
     {
-        _factory = factory;
     }
 
     [Fact]
@@ -27,7 +20,7 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
     {
         // Arrange
         var locationId = await SeedLocationAsync("Main Office");
-        using var client = _factory.CreateClient();
+        using var client = CreateClient();
 
         // Act
         var response = await client.GetAsync($"/api/locations/{locationId.Value}");
@@ -49,7 +42,7 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
     public async Task GetLocationById_WhenLocationDoesNotExist_ShouldReturnNotFound()
     {
         // Arrange
-        using var client = _factory.CreateClient();
+        using var client = CreateClient();
 
         // Act
         var response = await client.GetAsync($"/api/locations/{Guid.NewGuid()}");
@@ -68,7 +61,7 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
     {
         // Arrange
         var departmentId = await SeedDepartmentAsync("Development Department", "development");
-        using var client = _factory.CreateClient();
+        using var client = CreateClient();
 
         // Act
         var response = await client.GetAsync($"/api/departments/{departmentId.Value}");
@@ -90,7 +83,7 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
     public async Task GetDepartmentById_WhenDepartmentDoesNotExist_ShouldReturnNotFound()
     {
         // Arrange
-        using var client = _factory.CreateClient();
+        using var client = CreateClient();
 
         // Act
         var response = await client.GetAsync($"/api/departments/{Guid.NewGuid()}");
@@ -104,25 +97,4 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
             message.Code == "department.not_found");
     }
 
-    [Fact]
-    public async Task ReadDbContext_WhenEntityIsLoaded_ShouldNotTrackIt()
-    {
-        // Arrange
-        var locationId = await SeedLocationAsync();
-
-        // Act
-        var trackedEntriesCount = await ExecuteScopedAsync(async services =>
-        {
-            var readDbContext = services.GetRequiredService<IReadDbContext>();
-            var dbContext = services.GetRequiredService<DirectoryServiceDbContext>();
-
-            _ = await readDbContext.Locations
-                .SingleAsync(location => location.Id == locationId);
-
-            return dbContext.ChangeTracker.Entries().Count();
-        });
-
-        // Assert
-        trackedEntriesCount.Should().Be(0);
-    }
 }

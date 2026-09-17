@@ -1,7 +1,7 @@
-using DirectoryService.Application.Features.Locations.Delete;
-using DirectoryService.Application.Features.Positions.Delete;
+using System.Net;
+using System.Net.Http.Json;
 using DirectoryService.Domain.Entities;
-using DirectoryService.Domain.Shared;
+using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,81 +16,83 @@ public sealed class DeletePositionAndLocationTests : DirectoryServiceTestsBase
     }
 
     [Fact]
-    public async Task DeletePosition_WhenLinked_ShouldDeletePositionAndLinksOnly()
+    public async Task DeletePosition_WhenLinked_ShouldSoftDeletePositionAndPreserveLinks()
     {
         // Arrange
         var departmentId = await SeedDepartmentAsync("Development Department", "development");
         var positionId = await SeedPositionAsync("Developer", [departmentId]);
-        var command = new DeletePositionCommand(positionId.Value);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.DeleteAsync($"/api/positions/{positionId.Value}");
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.IsError.Should().BeFalse();
         await ExecuteDbContextAsync(async dbContext =>
         {
-            (await dbContext.Positions.AnyAsync(item => item.Id == positionId)).Should().BeFalse();
+            var position = await dbContext.Positions
+                .IgnoreQueryFilters()
+                .SingleAsync(item => item.Id == positionId);
+
+            position.IsActive.Should().BeFalse();
+            position.DeletedAt.Should().NotBeNull();
             (await dbContext.Set<DepartmentPosition>()
+                    .IgnoreQueryFilters()
                     .AnyAsync(link => link.PositionId == positionId))
-                .Should().BeFalse();
+                .Should().BeTrue();
             (await dbContext.Departments.AnyAsync(item => item.Id == departmentId)).Should().BeTrue();
         });
     }
 
     [Fact]
-    public async Task DeleteLocation_WhenLinked_ShouldDeleteLocationAndLinksOnly()
+    public async Task DeleteLocation_WhenLinked_ShouldSoftDeleteLocationAndPreserveLinks()
     {
         // Arrange
         var locationId = await SeedLocationAsync();
-        var departmentId = await SeedDepartmentAsync(
-            "Sales Department",
-            "sales",
-            locationIds: [locationId]);
-        var command = new DeleteLocationCommand(locationId.Value);
+        var departmentId = await SeedDepartmentAsync("Sales Department", "sales", locationIds: [locationId]);
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.DeleteAsync($"/api/locations/{locationId.Value}");
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.IsError.Should().BeFalse();
         await ExecuteDbContextAsync(async dbContext =>
         {
-            (await dbContext.Locations.AnyAsync(item => item.Id == locationId)).Should().BeFalse();
+            var location = await dbContext.Locations
+                .IgnoreQueryFilters()
+                .SingleAsync(item => item.Id == locationId);
+
+            location.IsActive.Should().BeFalse();
+            location.DeletedAt.Should().NotBeNull();
             (await dbContext.Set<DepartmentLocation>()
+                    .IgnoreQueryFilters()
                     .AnyAsync(link => link.LocationId == locationId))
-                .Should().BeFalse();
+                .Should().BeTrue();
             (await dbContext.Departments.AnyAsync(item => item.Id == departmentId)).Should().BeTrue();
         });
     }
 
-    [Fact]
-    public async Task DeletePosition_WhenPositionDoesNotExist_ShouldReturnNotFound()
+    [Theory]
+    [InlineData("positions", "position.not_found")]
+    [InlineData("locations", "location.not_found")]
+    public async Task DeleteEntity_WhenEntityDoesNotExist_ShouldReturnNotFound(
+        string resource,
+        string errorCode)
     {
         // Arrange
-        var command = new DeletePositionCommand(Guid.NewGuid());
+        using var client = CreateClient();
 
         // Act
-        var result = await ExecuteCommandAsync(command);
+        var response = await client.DeleteAsync($"/api/{resource}/{Guid.NewGuid()}");
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
 
         // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "position.not_found");
-    }
-
-    [Fact]
-    public async Task DeleteLocation_WhenLocationDoesNotExist_ShouldReturnNotFound()
-    {
-        // Arrange
-        var command = new DeleteLocationCommand(Guid.NewGuid());
-
-        // Act
-        var result = await ExecuteCommandAsync(command);
-
-        // Assert
-        result.IsFailure.Should().BeTrue();
-        result.Error.Type.Should().Be(ErrorType.NotFound);
-        result.Error.Messages.Should().ContainSingle(message => message.Code == "location.not_found");
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == errorCode);
     }
 }

@@ -46,7 +46,7 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
             _postgresContainer.StartAsync(),
             _redisContainer.StartAsync());
 
-        using var scope = Services.CreateAsyncScope();
+        await using var scope = Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<DirectoryServiceDbContext>();
         _dataSource = scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>();
         _hybridCache = scope.ServiceProvider.GetRequiredService<HybridCache>();
