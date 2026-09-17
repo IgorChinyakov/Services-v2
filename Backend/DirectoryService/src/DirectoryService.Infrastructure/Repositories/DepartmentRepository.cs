@@ -144,6 +144,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 distinctLocationIds.Length);
 
             await _dbContext.Set<DepartmentLocation>()
+                .IgnoreQueryFilters()
                 .Where(departmentLocation => departmentLocation.DepartmentId == departmentId)
                 .ExecuteDeleteAsync(cancellationToken);
 
@@ -577,6 +578,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 $"""
                  UPDATE locations
                  SET is_active = FALSE,
+                     deleted_at = NOW(),
                      updated_at = NOW()
                  WHERE id IN (
                      SELECT dl.location_id
@@ -592,6 +594,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                              AND other_d.is_active = TRUE
                        )
                  )
+                   AND is_active = TRUE
                  """,
                 cancellationToken);
 
@@ -599,6 +602,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 $"""
                  UPDATE positions
                  SET is_active = FALSE,
+                     deleted_at = NOW(),
                      updated_at = NOW()
                  WHERE id IN (
                      SELECT dp.position_id
@@ -614,6 +618,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                              AND other_d.is_active = TRUE
                        )
                  )
+                   AND is_active = TRUE
                  """,
                 cancellationToken);
 

@@ -48,6 +48,8 @@ public static class DependencyInjectionExtensions
         services.AddApplication();
         services.AddDatabase(configuration);
         services.AddDepartmentCleanup(configuration);
+        services.AddLocationCleanup(configuration);
+        services.AddPositionCleanup(configuration);
 
         string redisConnectionString = configuration["Redis:ConnectionString"] ??
                                        throw new InvalidOperationException(

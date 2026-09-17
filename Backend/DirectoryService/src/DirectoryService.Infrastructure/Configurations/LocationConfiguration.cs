@@ -74,6 +74,10 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
             .HasColumnName("updated_at")
             .IsRequired();
 
+        builder.Property(x => x.DeletedAt)
+            .HasColumnName("deleted_at")
+            .IsRequired(false);
+
         builder.Navigation(x => x.DepartmentLocations)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 

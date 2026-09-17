@@ -57,6 +57,25 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
     }
 
     [Fact]
+    public async Task GetLocationById_WhenLocationIsSoftDeleted_ShouldReturnNotFound()
+    {
+        // Arrange
+        var locationId = await SeedLocationAsync("Deleted Office");
+        using var client = CreateClient();
+        var deleteResponse = await client.DeleteAsync($"/api/locations/{locationId.Value}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Act
+        var response = await client.GetAsync($"/api/locations/{locationId.Value}");
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope.Should().NotBeNull();
+        envelope!.Errors.Should().ContainSingle(message => message.Code == "location.not_found");
+    }
+
+    [Fact]
     public async Task GetDepartmentById_WhenDepartmentExists_ShouldReturnDepartmentDto()
     {
         // Arrange
@@ -95,6 +114,25 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
         envelope!.IsError.Should().BeTrue();
         envelope.Errors.Should().ContainSingle(message =>
             message.Code == "department.not_found");
+    }
+
+    [Fact]
+    public async Task GetDepartmentById_WhenDepartmentIsSoftDeleted_ShouldReturnNotFound()
+    {
+        // Arrange
+        var departmentId = await SeedDepartmentAsync("Deleted Department", "deleted-department");
+        using var client = CreateClient();
+        var deleteResponse = await client.DeleteAsync($"/api/departments/{departmentId.Value}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Act
+        var response = await client.GetAsync($"/api/departments/{departmentId.Value}");
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope.Should().NotBeNull();
+        envelope!.Errors.Should().ContainSingle(message => message.Code == "department.not_found");
     }
 
 }

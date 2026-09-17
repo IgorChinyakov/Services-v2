@@ -9,5 +9,4 @@ public record GetLocationsRequest(
     SortDirection SortDir = SortDirection.Asc,
     Guid[]? DepartmentIds = null,
     string? Search = null,
-    bool? IsActive = null,
     int? MinDepartmentCount = null);

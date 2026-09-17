@@ -112,7 +112,6 @@ public sealed class LocationsController : ControllerBase
             request.SortDir,
             request.DepartmentIds,
             request.Search,
-            request.IsActive,
             request.MinDepartmentCount);
 
         return await handler.HandleAsync(query, cancellationToken);

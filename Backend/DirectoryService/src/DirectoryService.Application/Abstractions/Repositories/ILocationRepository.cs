@@ -21,4 +21,9 @@ public interface ILocationRepository
     Task<Result<Location, Error>> AddAsync(Location location, CancellationToken cancellationToken);
 
     UnitResult<Error> Delete(Location location);
+
+    Task<Result<int, Error>> CleanupInactiveAsync(
+        DateTime deletedBeforeUtc,
+        int batchSize,
+        CancellationToken cancellationToken);
 }

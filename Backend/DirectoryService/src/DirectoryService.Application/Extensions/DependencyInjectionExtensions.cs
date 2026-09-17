@@ -14,11 +14,13 @@ using DirectoryService.Application.Features.Departments.SoftDelete;
 using DirectoryService.Application.Features.Departments.Update;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
+using DirectoryService.Application.Features.Locations.CleanupInactive;
 using DirectoryService.Application.Features.Locations.Create;
 using DirectoryService.Application.Features.Locations.Delete;
 using DirectoryService.Application.Features.Locations.Get;
 using DirectoryService.Application.Features.Locations.GetById;
 using DirectoryService.Application.Features.Locations.Update;
+using DirectoryService.Application.Features.Positions.CleanupInactive;
 using DirectoryService.Application.Features.Positions.Create;
 using DirectoryService.Application.Features.Positions.Delete;
 using DirectoryService.Application.Features.Positions.Update;
@@ -49,6 +51,12 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ICommandHandler<CreatePositionCommand, Guid>, CreatePositionHandler>();
         services.AddScoped<ICommandHandler<UpdatePositionCommand>, UpdatePositionHandler>();
         services.AddScoped<ICommandHandler<DeletePositionCommand>, DeletePositionHandler>();
+        services.AddScoped<
+            ICommandHandler<CleanupInactiveLocationsCommand, int>,
+            CleanupInactiveLocationsHandler>();
+        services.AddScoped<
+            ICommandHandler<CleanupInactivePositionsCommand, int>,
+            CleanupInactivePositionsHandler>();
         services.AddScoped<
             ICommandHandler<CleanupInactiveDepartmentsCommand, int>,
             CleanupInactiveDepartmentsHandler>();

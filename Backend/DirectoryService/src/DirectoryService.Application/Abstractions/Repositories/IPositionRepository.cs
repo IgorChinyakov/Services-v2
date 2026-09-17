@@ -29,4 +29,9 @@ public interface IPositionRepository
         CancellationToken cancellationToken);
 
     UnitResult<Error> Delete(Position position);
+
+    Task<Result<int, Error>> CleanupInactiveAsync(
+        DateTime deletedBeforeUtc,
+        int batchSize,
+        CancellationToken cancellationToken);
 }

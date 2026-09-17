@@ -59,7 +59,7 @@ public sealed class DeletePositionHandler : ICommandHandler<DeletePositionComman
             return saveResult.Error;
 
         _logger.LogInformation(
-            "Position deleted successfully. PositionId {PositionId}",
+            "Position soft deleted successfully. PositionId {PositionId}",
             command.PositionId);
 
         await _cacheInvalidator.InvalidateAsync([CacheConstants.DEPARTMENTS_CACHE_TAG]);

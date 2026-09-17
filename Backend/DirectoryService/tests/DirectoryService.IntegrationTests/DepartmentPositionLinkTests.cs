@@ -75,6 +75,32 @@ public sealed class DepartmentPositionLinkTests : DirectoryServiceTestsBase
     }
 
     [Fact]
+    public async Task AddDepartmentPosition_WhenPositionIsSoftDeleted_ShouldReturnNotFoundWithoutCreatingLink()
+    {
+        // Arrange
+        var departmentId = await SeedDepartmentAsync("Sales Department", "sales");
+        var positionId = await SeedPositionAsync("Deleted position", []);
+        using var client = CreateClient();
+        (await client.DeleteAsync($"/api/positions/{positionId.Value}"))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Act
+        var response = await client.PostAsync(
+            $"/api/departments/{departmentId.Value}/positions/{positionId.Value}",
+            null);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "position.not_found");
+        (await ExecuteDbContextAsync(dbContext => dbContext.Set<DepartmentPosition>()
+                .IgnoreQueryFilters()
+                .AnyAsync(link =>
+                    link.DepartmentId == departmentId && link.PositionId == positionId)))
+            .Should().BeFalse();
+    }
+
+    [Fact]
     public async Task RemoveDepartmentPosition_WhenLinkExists_ShouldDeleteLinkOnly()
     {
         // Arrange

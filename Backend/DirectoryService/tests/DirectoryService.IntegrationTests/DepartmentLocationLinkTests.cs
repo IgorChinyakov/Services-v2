@@ -100,6 +100,32 @@ public sealed class DepartmentLocationLinkTests : DirectoryServiceTestsBase
     }
 
     [Fact]
+    public async Task AddDepartmentLocation_WhenLocationIsSoftDeleted_ShouldReturnNotFoundWithoutCreatingLink()
+    {
+        // Arrange
+        var departmentId = await SeedDepartmentAsync("Sales Department", "sales", locationIds: []);
+        var locationId = await SeedLocationAsync("Deleted office");
+        using var client = CreateClient();
+        (await client.DeleteAsync($"/api/locations/{locationId.Value}"))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Act
+        var response = await client.PostAsync(
+            $"/api/departments/{departmentId.Value}/locations/{locationId.Value}",
+            null);
+        var envelope = await response.Content.ReadFromJsonAsync<Envelope>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        envelope!.Errors.Should().ContainSingle(error => error.Code == "location.not_found");
+        (await ExecuteDbContextAsync(dbContext => dbContext.Set<DepartmentLocation>()
+                .IgnoreQueryFilters()
+                .AnyAsync(link =>
+                    link.DepartmentId == departmentId && link.LocationId == locationId)))
+            .Should().BeFalse();
+    }
+
+    [Fact]
     public async Task RemoveDepartmentLocation_WhenLinkExists_ShouldDeleteOnlyLink()
     {
         // Arrange

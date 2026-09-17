@@ -49,6 +49,10 @@ public class PositionConfiguration : IEntityTypeConfiguration<Position>
             .HasColumnName("updated_at")
             .IsRequired();
 
+        builder.Property(x => x.DeletedAt)
+            .HasColumnName("deleted_at")
+            .IsRequired(false);
+
         builder.Navigation(x => x.DepartmentPositions)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 

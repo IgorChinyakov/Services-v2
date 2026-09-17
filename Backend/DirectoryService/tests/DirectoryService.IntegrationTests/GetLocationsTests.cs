@@ -96,6 +96,41 @@ public sealed class GetLocationsTests : DirectoryServiceTestsBase
     }
 
     [Fact]
+    public async Task GetLocations_WhenLinkedDepartmentIsSoftDeleted_ShouldCountOnlyActiveDepartments()
+    {
+        // Arrange
+        var locationId = await SeedLocationAsync("Shared office");
+        var activeDepartmentId = await SeedDepartmentAsync(
+            "Active Department",
+            "active-department",
+            locationIds: [locationId]);
+        var deletedDepartmentId = await SeedDepartmentAsync(
+            "Deleted Department",
+            "deleted-department",
+            locationIds: [locationId]);
+
+        using var client = _factory.CreateClient();
+        var deleteResponse = await client.DeleteAsync($"/api/departments/{deletedDepartmentId.Value}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Act
+        var response = await client.GetAsync("/api/locations");
+        var envelope = await response.Content
+            .ReadFromJsonAsync<Envelope<PagedList<LocationListItemDto>>>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope.Should().NotBeNull();
+        envelope!.Result.Should().NotBeNull();
+        envelope.Result!.Items.Should().ContainSingle(location =>
+            location.Id == locationId.Value && location.DepartmentCount == 1);
+
+        (await ExecuteDbContextAsync(dbContext => dbContext.Departments
+                .AnyAsync(department => department.Id == activeDepartmentId)))
+            .Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GetLocations_SortByDepartmentCountDescending_ShouldReturnOrderedPage()
     {
         // Arrange
@@ -193,6 +228,38 @@ public sealed class GetLocationsTests : DirectoryServiceTestsBase
         envelope!.Result.Should().NotBeNull();
         envelope.Result!.TotalCount.Should().Be(1);
         envelope.Result.Items.Should().ContainSingle(location => location.Name == "Central Moscow Office");
+    }
+
+    [Fact]
+    public async Task GetLocations_WhenLocationIsSoftDeleted_ShouldNotReturnDeletedLocation()
+    {
+        // Arrange
+        var activeLocationId = await SeedLocationAsync("Active office");
+        var deletedLocationId = await SeedLocationAsync("Deleted office");
+
+        await ExecuteDbContextAsync(async dbContext =>
+        {
+            await dbContext.Locations
+                .Where(location => location.Id == deletedLocationId)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(location => location.IsActive, false)
+                    .SetProperty(location => location.DeletedAt, DateTime.UtcNow));
+        });
+
+        using var client = _factory.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/locations");
+        var envelope = await response.Content
+            .ReadFromJsonAsync<Envelope<PagedList<LocationListItemDto>>>();
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope.Should().NotBeNull();
+        envelope!.Result.Should().NotBeNull();
+        envelope.Result!.Items.Should().ContainSingle(location => location.Id == activeLocationId.Value);
+        envelope.Result.Items.Should().NotContain(location => location.Id == deletedLocationId.Value);
+        envelope.Result.TotalCount.Should().Be(1);
     }
 
     [Fact]

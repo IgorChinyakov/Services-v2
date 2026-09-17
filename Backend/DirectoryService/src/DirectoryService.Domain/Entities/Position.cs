@@ -23,6 +23,8 @@ public class Position : Entity<PositionId>
 
     public DateTime UpdatedAt { get; private set; }
 
+    public DateTime? DeletedAt { get; private set; }
+
     public IReadOnlyList<DepartmentPosition> DepartmentPositions => _departmentPositions;
 
     public Position(
@@ -54,5 +56,14 @@ public class Position : Entity<PositionId>
 
         Name = name;
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void SoftDelete()
+    {
+        var deletedAtUtc = DateTime.UtcNow;
+
+        IsActive = false;
+        DeletedAt = deletedAtUtc;
+        UpdatedAt = deletedAtUtc;
     }
 }

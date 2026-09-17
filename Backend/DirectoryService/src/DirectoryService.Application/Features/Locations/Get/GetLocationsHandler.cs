@@ -49,11 +49,10 @@ public class GetLocationsHandler : IQueryHandler<GetLocationsQuery, PagedList<Lo
 
         var departmentsHash = GetDepartmentIdsHash(query.DepartmentIds);
         var search = query.Search?.Trim().ToLowerInvariant() ?? string.Empty;
-        var isActive = query.IsActive is null ? string.Empty : query.IsActive.ToString();
 
         string cacheKey =
             $"locations:page={query.Page}:size={query.PageSize}" +
-            $":search={search}:active={isActive}" +
+            $":search={search}" +
             $":sort={query.SortBy}:direction={query.SortDirection}" +
             $":department={departmentsHash}" +
             $":minDepartmentCount={query.MinDepartmentCount?.ToString() ?? "none"}";

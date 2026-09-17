@@ -25,5 +25,20 @@ public class DirectoryServiceDbContext : DbContext, IReadDbContext
     {
         modelBuilder.HasPostgresExtension("ltree");
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(DirectoryServiceDbContext).Assembly);
+
+        modelBuilder.Entity<Location>()
+            .HasQueryFilter(location => location.IsActive);
+
+        modelBuilder.Entity<Department>()
+            .HasQueryFilter(department => department.IsActive);
+
+        modelBuilder.Entity<Position>()
+            .HasQueryFilter(position => position.IsActive);
+
+        modelBuilder.Entity<DepartmentLocation>()
+            .HasQueryFilter(link => link.Department.IsActive && link.Location.IsActive);
+
+        modelBuilder.Entity<DepartmentPosition>()
+            .HasQueryFilter(link => link.Department.IsActive && link.Position.IsActive);
     }
 }

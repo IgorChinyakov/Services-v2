@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using DirectoryService.Contracts.Departments.Requests;
+using DirectoryService.Domain.Entities;
 using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -108,5 +109,39 @@ public sealed class UpdateDepartmentLocationsTests : DirectoryServiceTestsBase
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         envelope!.Errors.Should().ContainSingle(error => error.InvalidField == "LocationIds");
+    }
+
+    [Fact]
+    public async Task UpdateDepartmentLocations_WhenOldLinkIsHiddenByQueryFilter_ShouldReplaceAllLinks()
+    {
+        // Arrange
+        var deletedLocationId = await SeedLocationAsync("Deleted office");
+        var activeLocationId = await SeedLocationAsync("Active office");
+        var departmentId = await SeedDepartmentAsync(
+            "Sales Department",
+            "sales",
+            locationIds: [deletedLocationId]);
+
+        using var client = CreateClient();
+        var deleteResponse = await client.DeleteAsync($"/api/locations/{deletedLocationId.Value}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // Act
+        var response = await client.PutAsJsonAsync(
+            $"/api/departments/{departmentId.Value}/locations",
+            new UpdateDepartmentLocationsRequest { LocationIds = [activeLocationId.Value] });
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        await ExecuteDbContextAsync(async dbContext =>
+        {
+            var links = await dbContext.Set<DepartmentLocation>()
+                .IgnoreQueryFilters()
+                .Where(link => link.DepartmentId == departmentId)
+                .ToListAsync();
+
+            links.Should().ContainSingle(link => link.LocationId == activeLocationId);
+            links.Should().NotContain(link => link.LocationId == deletedLocationId);
+        });
     }
 }

@@ -45,16 +45,21 @@ public sealed class SoftDeleteDepartmentTests : DirectoryServiceTestsBase
         await ExecuteDbContextAsync(async dbContext =>
         {
             var department = await dbContext.Departments
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Include(item => item.DepartmentLocations)
                 .Include(item => item.DepartmentPositions)
                 .SingleAsync(item => item.Id == departmentId);
             var child = await dbContext.Departments.AsNoTracking().SingleAsync(item => item.Id == childId);
             var grandchild = await dbContext.Departments.AsNoTracking().SingleAsync(item => item.Id == grandchildId);
-            var locations = await dbContext.Locations.AsNoTracking()
+            var locations = await dbContext.Locations
+                .IgnoreQueryFilters()
+                .AsNoTracking()
                 .Where(item => item.Id == sharedLocationId || item.Id == orphanLocationId)
                 .ToDictionaryAsync(item => item.Id);
-            var positions = await dbContext.Positions.AsNoTracking()
+            var positions = await dbContext.Positions
+                .IgnoreQueryFilters()
+                .AsNoTracking()
                 .Where(item => item.Id == sharedPositionId || item.Id == orphanPositionId)
                 .ToDictionaryAsync(item => item.Id);
 
@@ -69,9 +74,13 @@ public sealed class SoftDeleteDepartmentTests : DirectoryServiceTestsBase
             grandchild.IsActive.Should().BeTrue();
             grandchild.Path.Should().Be("deleted_sales.regional.inside");
             locations[sharedLocationId].IsActive.Should().BeTrue();
+            locations[sharedLocationId].DeletedAt.Should().BeNull();
             locations[orphanLocationId].IsActive.Should().BeFalse();
+            locations[orphanLocationId].DeletedAt.Should().NotBeNull();
             positions[sharedPositionId].IsActive.Should().BeTrue();
+            positions[sharedPositionId].DeletedAt.Should().BeNull();
             positions[orphanPositionId].IsActive.Should().BeFalse();
+            positions[orphanPositionId].DeletedAt.Should().NotBeNull();
         });
     }
 

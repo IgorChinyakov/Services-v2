@@ -35,6 +35,7 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
         var filtersSql = BuildFiltersSql(query, parameters);
 
         parameters.Add("MinDepartmentCount", query.MinDepartmentCount, DbType.Int32);
+        parameters.Add("IsActive", true, DbType.Boolean);
         parameters.Add("PageSize", query.PageSize, DbType.Int32);
         parameters.Add("Offset", (query.Page - 1) * query.PageSize, DbType.Int32);
 
@@ -44,13 +45,12 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
 
             _logger.LogInformation(
                 "Loading locations from database. Page: {Page}, PageSize: {PageSize}, " +
-                "Search: {Search}, IsActive: {IsActive}, DepartmentIdsCount: {DepartmentIdsCount}, " +
+                "Search: {Search}, DepartmentIdsCount: {DepartmentIdsCount}, " +
                 "MinDepartmentCount: {MinDepartmentCount}, " +
                 "SortBy: {SortBy}, SortDirection: {SortDirection}",
                 query.Page,
                 query.PageSize,
                 query.Search,
-                query.IsActive,
                 query.DepartmentIds?.Length ?? 0,
                 query.MinDepartmentCount,
                 query.SortBy,
@@ -117,6 +117,9 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                                    and exists (
                                        select 1
                                        from department_locations filtered_dl
+                                       join departments filtered_d
+                                         on filtered_d.id = filtered_dl.department_id
+                                        and filtered_d.is_active = true
                                        where filtered_dl.location_id = l.id
                                          and filtered_dl.department_id in ({string.Join(", ", placeholders)})
                                    )
@@ -129,11 +132,7 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
             parameters.Add("Search", $"%{query.Search.Trim()}%");
         }
 
-        if (query.IsActive.HasValue)
-        {
-            filtersSql.AppendLine("and l.is_active = @IsActive");
-            parameters.Add("IsActive", query.IsActive.Value);
-        }
+        filtersSql.AppendLine("and l.is_active = @IsActive");
 
         return filtersSql.ToString();
     }
@@ -176,9 +175,12 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                         l.street,
                         l.house,
                         l.apartment,
-                        count(dl.department_id)::bigint as department_count
+                        count(d.id)::bigint as department_count
                     from locations as l
                     left join department_locations as dl on dl.location_id = l.id
+                    left join departments as d
+                      on d.id = dl.department_id
+                     and d.is_active = true
                     {filtersSql}
                     group by
                         l.id,
