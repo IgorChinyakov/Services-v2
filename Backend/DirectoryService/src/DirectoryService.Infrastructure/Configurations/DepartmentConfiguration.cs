@@ -92,6 +92,12 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
             .HasDatabaseName("ix_departments_path_gist");
 
         builder.OwnsOne(x => x.Name).HasIndex(x => x.Value).HasDatabaseName("ix_departments_name");
+        builder.OwnsOne(x => x.Name)
+            .HasIndex(x => x.Value, "IX_Departments_Active_Name_Trgm")
+            .HasMethod("gin")
+            .HasOperators("gin_trgm_ops")
+            .HasFilter("is_active = true")
+            .HasDatabaseName("ix_departments_active_name_trgm");
         builder.OwnsOne(x => x.Slug)
             .HasIndex(x => x.Value)
             .IsUnique()

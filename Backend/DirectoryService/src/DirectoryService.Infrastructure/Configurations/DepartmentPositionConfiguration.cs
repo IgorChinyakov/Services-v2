@@ -42,9 +42,9 @@ public class DepartmentPositionConfiguration : IEntityTypeConfiguration<Departme
             .HasConstraintName("fk_department_positions_position_id")
             .OnDelete(DeleteBehavior.Cascade);
 
-        builder.HasIndex(x => x.DepartmentId).HasDatabaseName("idx_department_positions_department_id");
         builder.HasIndex(x => x.PositionId).HasDatabaseName("idx_department_positions_position_id");
 
+        // The unique composite index also serves lookups by its leading department_id column.
         builder.HasIndex(x => new { x.DepartmentId, x.PositionId })
             .IsUnique();
     }

@@ -21,6 +21,7 @@ namespace DirectoryService.Infrastructure.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "ltree");
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "pg_trgm");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("DirectoryService.Domain.Entities.Department", b =>
@@ -94,9 +95,6 @@ namespace DirectoryService.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("DepartmentId")
-                        .HasDatabaseName("idx_department_locations_department_id");
-
                     b.HasIndex("LocationId")
                         .HasDatabaseName("idx_department_locations_location_id");
 
@@ -122,9 +120,6 @@ namespace DirectoryService.Infrastructure.Migrations
                         .HasColumnName("position_id");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DepartmentId")
-                        .HasDatabaseName("idx_department_positions_department_id");
 
                     b.HasIndex("PositionId")
                         .HasDatabaseName("idx_department_positions_position_id");
@@ -218,7 +213,14 @@ namespace DirectoryService.Infrastructure.Migrations
                             b1.HasIndex("Value")
                                 .HasDatabaseName("ix_departments_name");
 
-                            b1.ToTable("departments");
+                            b1.HasIndex(new[] { "Value" }, "IX_Departments_Active_Name_Trgm")
+                                .HasDatabaseName("ix_departments_active_name_trgm")
+                                .HasFilter("is_active = true");
+
+                            NpgsqlIndexBuilderExtensions.HasMethod(b1.HasIndex(new[] { "Value" }, "IX_Departments_Active_Name_Trgm"), "gin");
+                            NpgsqlIndexBuilderExtensions.HasOperators(b1.HasIndex(new[] { "Value" }, "IX_Departments_Active_Name_Trgm"), new[] { "gin_trgm_ops" });
+
+                            b1.ToTable("departments", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("DepartmentId");
@@ -241,7 +243,7 @@ namespace DirectoryService.Infrastructure.Migrations
                                 .IsUnique()
                                 .HasDatabaseName("ix_departments_slug");
 
-                            b1.ToTable("departments");
+                            b1.ToTable("departments", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("DepartmentId");
@@ -335,7 +337,7 @@ namespace DirectoryService.Infrastructure.Migrations
                                 .IsUnique()
                                 .HasDatabaseName("ix_locations_address");
 
-                            b1.ToTable("locations");
+                            b1.ToTable("locations", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("LocationId");
@@ -358,7 +360,7 @@ namespace DirectoryService.Infrastructure.Migrations
                                 .IsUnique()
                                 .HasDatabaseName("ix_locations_name");
 
-                            b1.ToTable("locations");
+                            b1.ToTable("locations", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("LocationId");
@@ -385,7 +387,7 @@ namespace DirectoryService.Infrastructure.Migrations
 
                             b1.HasKey("PositionId");
 
-                            b1.ToTable("positions");
+                            b1.ToTable("positions", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionId");
@@ -409,7 +411,7 @@ namespace DirectoryService.Infrastructure.Migrations
                                 .HasDatabaseName("ix_positions_active_name")
                                 .HasFilter("is_active = true");
 
-                            b1.ToTable("positions");
+                            b1.ToTable("positions", (string)null);
 
                             b1.WithOwner()
                                 .HasForeignKey("PositionId");
