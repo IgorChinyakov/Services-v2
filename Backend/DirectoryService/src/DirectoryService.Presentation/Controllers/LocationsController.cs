@@ -93,12 +93,12 @@ public sealed class LocationsController : ControllerBase
     }
 
     [HttpGet]
-    [ProducesResponseType<Envelope<PagedList<LocationDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<Envelope<PagedList<LocationListItemDto>>>(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
-    public async Task<EndpointResult<PagedList<LocationDto>>> FetchLocations(
+    public async Task<EndpointResult<PagedList<LocationListItemDto>>> FetchLocations(
         [FromQuery] GetLocationsRequest request,
-        [FromServices] IQueryHandler<GetLocationsQuery, PagedList<LocationDto>> handler,
+        [FromServices] IQueryHandler<GetLocationsQuery, PagedList<LocationListItemDto>> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -109,10 +109,11 @@ public sealed class LocationsController : ControllerBase
             request.Page,
             request.PageSize,
             request.SortBy,
-            request.SortDirection,
+            request.SortDir,
             request.DepartmentIds,
             request.Search,
-            request.IsActive);
+            request.IsActive,
+            request.MinDepartmentCount);
 
         return await handler.HandleAsync(query, cancellationToken);
     }

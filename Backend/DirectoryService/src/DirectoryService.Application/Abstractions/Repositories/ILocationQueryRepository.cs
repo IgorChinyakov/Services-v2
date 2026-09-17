@@ -8,7 +8,7 @@ namespace DirectoryService.Application.Abstractions.Repositories;
 
 public interface ILocationQueryRepository
 {
-    Task<Result<PagedList<LocationDto>, Error>> GetFilteredWithPaginationAsync(
+    Task<Result<PagedList<LocationListItemDto>, Error>> GetFilteredWithPaginationAsync(
         GetLocationsQuery query,
         CancellationToken cancellationToken);
 }

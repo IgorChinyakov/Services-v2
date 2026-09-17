@@ -52,7 +52,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<
             ICommandHandler<CleanupInactiveDepartmentsCommand, int>,
             CleanupInactiveDepartmentsHandler>();
-        services.AddScoped<IQueryHandler<GetLocationsQuery, PagedList<LocationDto>>, GetLocationsHandler>();
+        services.AddScoped<IQueryHandler<GetLocationsQuery, PagedList<LocationListItemDto>>, GetLocationsHandler>();
         services.AddScoped<
             IQueryHandler<GetLocationByIdQuery, LocationDetailsDto>,
             GetLocationByIdHandler>();

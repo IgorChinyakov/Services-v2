@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace DirectoryService.Application.Features.Locations.Get;
 
-public class GetLocationsHandler : IQueryHandler<GetLocationsQuery, PagedList<LocationDto>>
+public class GetLocationsHandler : IQueryHandler<GetLocationsQuery, PagedList<LocationListItemDto>>
 {
     private readonly ILogger<GetLocationsHandler> _logger;
     private readonly IValidator<GetLocationsQuery> _validator;
@@ -33,7 +33,7 @@ public class GetLocationsHandler : IQueryHandler<GetLocationsQuery, PagedList<Lo
         _hybridCache = hybridCache;
     }
 
-    public async Task<Result<PagedList<LocationDto>, Error>> HandleAsync(
+    public async Task<Result<PagedList<LocationListItemDto>, Error>> HandleAsync(
         GetLocationsQuery query,
         CancellationToken cancellationToken)
     {
@@ -55,9 +55,10 @@ public class GetLocationsHandler : IQueryHandler<GetLocationsQuery, PagedList<Lo
             $"locations:page={query.Page}:size={query.PageSize}" +
             $":search={search}:active={isActive}" +
             $":sort={query.SortBy}:direction={query.SortDirection}" +
-            $":department={departmentsHash}";
+            $":department={departmentsHash}" +
+            $":minDepartmentCount={query.MinDepartmentCount?.ToString() ?? "none"}";
 
-        PagedList<LocationDto>? locationPagedList;
+        PagedList<LocationListItemDto>? locationPagedList;
         var loadedFromDatabase = false;
 
         try

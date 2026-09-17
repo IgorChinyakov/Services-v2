@@ -23,6 +23,10 @@ public class GetLocationsQueryValidator : AbstractValidator<GetLocationsQuery>
             .MaximumLength(Name.MAX_LENGTH)
             .When(query => query.Search is not null);
 
+        RuleFor(query => query.MinDepartmentCount)
+            .GreaterThanOrEqualTo(0)
+            .When(query => query.MinDepartmentCount.HasValue);
+
         RuleFor(query => query.DepartmentIds)
             .Custom((departmentIds, context) =>
             {
