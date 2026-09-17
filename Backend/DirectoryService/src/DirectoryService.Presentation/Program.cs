@@ -6,9 +6,16 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.SystemConsole.Themes;
 
+var bootstrapEnvironmentName =
+    Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ??
+    Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT") ??
+    Environments.Production;
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
+    .Enrich.WithProperty("EnvironmentName", bootstrapEnvironmentName)
+    .Enrich.WithProperty("MachineName", Environment.MachineName)
     .WriteTo.Console(theme: AnsiConsoleTheme.Sixteen)
     .CreateBootstrapLogger();
 
@@ -23,7 +30,11 @@ try
         loggerConfiguration
             .ReadFrom.Configuration(context.Configuration)
             .ReadFrom.Services(services)
-            .Enrich.FromLogContext();
+            .Enrich.FromLogContext()
+            .Enrich.WithProperty(
+                "EnvironmentName",
+                context.HostingEnvironment.EnvironmentName)
+            .Enrich.WithProperty("MachineName", Environment.MachineName);
 
         var seqServerUrl = context.Configuration["Seq:ServerUrl"];
 
