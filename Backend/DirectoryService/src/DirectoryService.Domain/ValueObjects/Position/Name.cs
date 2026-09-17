@@ -21,7 +21,7 @@ public class Name : ValueObject
         if (validationResult.IsFailure)
             return validationResult.Error;
 
-        return new Name(value);
+        return new Name(value.Trim());
     }
 
     public static UnitResult<Error> Validate(string value)

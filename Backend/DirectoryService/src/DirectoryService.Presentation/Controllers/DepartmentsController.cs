@@ -1,5 +1,6 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.AddLocation;
+using DirectoryService.Application.Features.Departments.AddPosition;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.Get;
 using DirectoryService.Application.Features.Departments.GetById;
@@ -7,6 +8,7 @@ using DirectoryService.Application.Features.Departments.GetChildren;
 using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
 using DirectoryService.Application.Features.Departments.RemoveLocation;
+using DirectoryService.Application.Features.Departments.RemovePosition;
 using DirectoryService.Application.Features.Departments.SoftDelete;
 using DirectoryService.Application.Features.Departments.Update;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
@@ -32,11 +34,11 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType<EndpointResult<Guid>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope<Guid>>(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<Guid>> CreateAsync(
         [FromBody] CreateDepartmentRequest request,
         [FromServices] ICommandHandler<CreateDepartmentCommand, Guid> handler,
@@ -56,14 +58,14 @@ public sealed class DepartmentsController : ControllerBase
 
         var result = await handler.Handle(command, cancellationToken);
 
-        return result;
+        return EndpointResult<Guid>.Created(result);
     }
 
     [HttpPatch("{departmentId:guid}")]
-    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult> UpdateAsync(
         Guid departmentId,
         [FromBody] UpdateDepartmentRequest request,
@@ -81,11 +83,11 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpPost("{departmentId:guid}/locations/{locationId:guid}")]
-    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult> AddLocationAsync(
         Guid departmentId,
         Guid locationId,
@@ -104,10 +106,10 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpDelete("{departmentId:guid}/locations/{locationId:guid}")]
-    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult> RemoveLocationAsync(
         Guid departmentId,
         Guid locationId,
@@ -125,10 +127,55 @@ public sealed class DepartmentsController : ControllerBase
             cancellationToken);
     }
 
+    [HttpPost("{departmentId:guid}/positions/{positionId:guid}")]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> AddPositionAsync(
+        Guid departmentId,
+        Guid positionId,
+        [FromServices] ICommandHandler<AddDepartmentPositionCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received add department position request. DepartmentId {DepartmentId}. PositionId {PositionId}. TraceId {TraceId}",
+            departmentId,
+            positionId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.Handle(
+            new AddDepartmentPositionCommand(departmentId, positionId),
+            cancellationToken);
+    }
+
+    [HttpDelete("{departmentId:guid}/positions/{positionId:guid}")]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> RemovePositionAsync(
+        Guid departmentId,
+        Guid positionId,
+        [FromServices] ICommandHandler<RemoveDepartmentPositionCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received remove department position request. DepartmentId {DepartmentId}. PositionId {PositionId}. TraceId {TraceId}",
+            departmentId,
+            positionId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.Handle(
+            new RemoveDepartmentPositionCommand(departmentId, positionId),
+            cancellationToken);
+    }
+
     [HttpGet]
-    [ProducesResponseType<EndpointResult<PagedList<DepartmentListItemDto>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope<PagedList<DepartmentListItemDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<PagedList<DepartmentListItemDto>>> GetAsync(
         [FromQuery] GetDepartmentsRequest request,
         [FromServices] IQueryHandler<GetDepartmentsQuery, PagedList<DepartmentListItemDto>> handler,
@@ -155,9 +202,9 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpGet("roots")]
-    [ProducesResponseType<EndpointResult<PagedList<RootDepartmentDto>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope<PagedList<RootDepartmentDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<PagedList<RootDepartmentDto>>> GetRootsAsync(
         [FromQuery] GetRootDepartmentsRequest request,
         [FromServices] IQueryHandler<GetRootDepartmentsQuery, PagedList<RootDepartmentDto>> handler,
@@ -179,9 +226,9 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpGet("{parentId:guid}/children")]
-    [ProducesResponseType<EndpointResult<PagedList<DepartmentNodeDto>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope<PagedList<DepartmentNodeDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<PagedList<DepartmentNodeDto>>> GetChildrenAsync(
         Guid parentId,
         [FromQuery] GetDepartmentChildrenRequest request,
@@ -204,9 +251,9 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpGet("top-positions")]
-    [ProducesResponseType<EndpointResult<IReadOnlyList<TopDepartmentByPositionsDto>>>(
+    [ProducesResponseType<Envelope<IReadOnlyList<TopDepartmentByPositionsDto>>>(
         StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<IReadOnlyList<TopDepartmentByPositionsDto>>> GetTopByPositionsAsync(
         [FromServices]
         IQueryHandler<GetTopDepartmentsByPositionsQuery, IReadOnlyList<TopDepartmentByPositionsDto>> handler,
@@ -222,10 +269,10 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType<EndpointResult<DepartmentDetailsDto>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope<DepartmentDetailsDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<DepartmentDetailsDto>> GetByIdAsync(
         Guid id,
         [FromServices] IQueryHandler<GetDepartmentByIdQuery, DepartmentDetailsDto> handler,
@@ -242,11 +289,11 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpPut("{departmentId:guid}/locations")]
-    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult> UpdateLocationsAsync(
         Guid departmentId,
         [FromBody] UpdateDepartmentLocationsRequest request,
@@ -269,11 +316,11 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpPut("{departmentId:guid}/parent")]
-    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult> UpdateParentAsync(
         Guid departmentId,
         [FromBody] UpdateDepartmentParentRequest request,
@@ -296,10 +343,10 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpDelete("{departmentId:guid}")]
-    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult> SoftDeleteAsync(
         Guid departmentId,
         [FromServices] ICommandHandler<SoftDeleteDepartmentCommand> handler,

@@ -7,23 +7,23 @@ public record Envelope
 {
     public object? Result { get; }
 
-    public Error? Error { get; }
+    public IReadOnlyList<ErrorMessage> Errors { get; }
 
-    public bool IsError => Error != null;
+    public bool IsError => Errors.Count > 0;
 
     public DateTime TimeGenerated { get; }
 
     [JsonConstructor]
-    private Envelope(object? result, Error? error)
+    private Envelope(object? result, IReadOnlyList<ErrorMessage> errors)
     {
         Result = result;
-        Error = error;
+        Errors = errors;
         TimeGenerated = DateTime.UtcNow;
     }
 
     public static Envelope Ok(object? result = null) =>
-        new(result, null);
+        new(result, []);
 
     public static Envelope Fail(Error error) =>
-        new(null, error);
+        new(null, error.Messages);
 }

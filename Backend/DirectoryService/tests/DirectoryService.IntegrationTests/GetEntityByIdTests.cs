@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Contracts.Departments;
 using DirectoryService.Contracts.Locations;
-using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Database;
 using DirectoryService.Presentation.ApiResponse;
 using FluentAssertions;
@@ -60,8 +59,7 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         envelope.Should().NotBeNull();
         envelope!.IsError.Should().BeTrue();
-        envelope.Error!.Type.Should().Be(ErrorType.NotFound);
-        envelope.Error.Messages.Should().ContainSingle(message =>
+        envelope.Errors.Should().ContainSingle(message =>
             message.Code == "location.not_found");
     }
 
@@ -102,8 +100,7 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         envelope.Should().NotBeNull();
         envelope!.IsError.Should().BeTrue();
-        envelope.Error!.Type.Should().Be(ErrorType.NotFound);
-        envelope.Error.Messages.Should().ContainSingle(message =>
+        envelope.Errors.Should().ContainSingle(message =>
             message.Code == "department.not_found");
     }
 

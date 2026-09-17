@@ -1,5 +1,6 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Locations.Create;
+using DirectoryService.Application.Features.Locations.Delete;
 using DirectoryService.Application.Features.Locations.Get;
 using DirectoryService.Application.Features.Locations.GetById;
 using DirectoryService.Application.Features.Locations.Update;
@@ -26,10 +27,10 @@ public sealed class LocationsController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType<EndpointResult<Guid>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope<Guid>>(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<Guid>> CreateAsync(
         [FromBody] CreateLocationRequest request,
         [FromServices] ICommandHandler<CreateLocationCommand, Guid> handler,
@@ -46,15 +47,15 @@ public sealed class LocationsController : ControllerBase
 
         var result = await handler.Handle(command, cancellationToken);
 
-        return result;
+        return EndpointResult<Guid>.Created(result);
     }
 
     [HttpPatch("{locationId:guid}")]
-    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult> UpdateAsync(
         Guid locationId,
         [FromBody] UpdateLocationRequest request,
@@ -71,8 +72,30 @@ public sealed class LocationsController : ControllerBase
             cancellationToken);
     }
 
+    [HttpDelete("{locationId:guid}")]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> DeleteAsync(
+        Guid locationId,
+        [FromServices] ICommandHandler<DeleteLocationCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received delete location request. LocationId {LocationId}. TraceId {TraceId}",
+            locationId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.Handle(
+            new DeleteLocationCommand(locationId),
+            cancellationToken);
+    }
+
     [HttpGet]
-    [ProducesResponseType<EndpointResult<PagedList<LocationDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<Envelope<PagedList<LocationDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<PagedList<LocationDto>>> FetchLocations(
         [FromQuery] GetLocationsRequest request,
         [FromServices] IQueryHandler<GetLocationsQuery, PagedList<LocationDto>> handler,
@@ -95,10 +118,10 @@ public sealed class LocationsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [ProducesResponseType<EndpointResult<LocationDetailsDto>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope<LocationDetailsDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<LocationDetailsDto>> GetByIdAsync(
         Guid id,
         [FromServices] IQueryHandler<GetLocationByIdQuery, LocationDetailsDto> handler,

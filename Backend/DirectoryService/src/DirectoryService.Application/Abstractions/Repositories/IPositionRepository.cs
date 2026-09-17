@@ -11,6 +11,15 @@ public interface IPositionRepository
         string name,
         CancellationToken cancellationToken);
 
+    Task<Result<bool, Error>> ActiveNameExistsAsync(
+        string name,
+        PositionId excludedPositionId,
+        CancellationToken cancellationToken);
+
+    Task<Result<Position, Error>> GetActiveByIdAsync(
+        PositionId positionId,
+        CancellationToken cancellationToken);
+
     Task<Result<IReadOnlyCollection<DepartmentId>, Error>> GetMissingActiveDepartmentIdsAsync(
         IReadOnlyCollection<DepartmentId> departmentIds,
         CancellationToken cancellationToken);
@@ -18,4 +27,6 @@ public interface IPositionRepository
     Task<Result<Position, Error>> AddAsync(
         Position position,
         CancellationToken cancellationToken);
+
+    UnitResult<Error> Delete(Position position);
 }

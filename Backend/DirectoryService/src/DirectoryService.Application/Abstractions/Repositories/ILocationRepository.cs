@@ -19,4 +19,6 @@ public interface ILocationRepository
         CancellationToken cancellationToken);
 
     Task<Result<Location, Error>> AddAsync(Location location, CancellationToken cancellationToken);
+
+    UnitResult<Error> Delete(Location location);
 }

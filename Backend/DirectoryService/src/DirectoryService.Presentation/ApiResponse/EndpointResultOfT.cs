@@ -1,22 +1,25 @@
-using System.Reflection;
 using CSharpFunctionalExtensions;
 using DirectoryService.Domain.Shared;
-using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc;
 using IResult = Microsoft.AspNetCore.Http.IResult;
 
 namespace DirectoryService.Presentation.ApiResponse;
 
 #pragma warning disable SA1649
-public sealed class EndpointResult<TValue> : IResult, IActionResult, IEndpointMetadataProvider
+public sealed class EndpointResult<TValue> : IResult, IActionResult
 #pragma warning restore SA1649
 {
     private readonly IResult _result;
 
     public EndpointResult(Result<TValue, Error> result)
+        : this(result, StatusCodes.Status200OK)
+    {
+    }
+
+    private EndpointResult(Result<TValue, Error> result, int successStatusCode)
     {
         _result = result.IsSuccess
-            ? new SuccessResult<TValue>(result.Value)
+            ? new SuccessResult<TValue>(result.Value, successStatusCode)
             : new ErrorResult(result.Error);
     }
 
@@ -32,18 +35,6 @@ public sealed class EndpointResult<TValue> : IResult, IActionResult, IEndpointMe
 
     public static implicit operator EndpointResult<TValue>(Result<TValue, Error> result) => new(result);
 
-    static void IEndpointMetadataProvider.PopulateMetadata(MethodInfo method, EndpointBuilder builder)
-    {
-        ArgumentNullException.ThrowIfNull(method);
-        ArgumentNullException.ThrowIfNull(builder);
-
-        // Success
-        builder.Metadata.Add(new ProducesResponseTypeMetadata(200, typeof(Envelope<TValue>), ["application/json"]));
-
-        // Common errors
-        builder.Metadata.Add(new ProducesResponseTypeMetadata(400, typeof(Envelope), ["application/json"]));
-        builder.Metadata.Add(new ProducesResponseTypeMetadata(500, typeof(Envelope), ["application/json"]));
-    }
-
-    public EndpointResult<TValue> ToEndpointResult(Result<TValue, Error> result) => new(result);
+    public static EndpointResult<TValue> Created(Result<TValue, Error> result) =>
+        new(result, StatusCodes.Status201Created);
 }

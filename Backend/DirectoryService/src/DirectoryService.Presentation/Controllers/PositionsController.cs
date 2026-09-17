@@ -1,5 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Positions.Create;
+using DirectoryService.Application.Features.Positions.Delete;
+using DirectoryService.Application.Features.Positions.Update;
 using DirectoryService.Contracts.Positions.Requests;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Presentation.ApiResponse;
@@ -19,11 +21,11 @@ public sealed class PositionsController : ControllerBase
     }
 
     [HttpPost]
-    [ProducesResponseType<EndpointResult<Guid>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
-    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    [ProducesResponseType<Envelope<Guid>>(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<Guid>> CreateAsync(
         [FromBody] CreatePositionRequest request,
         [FromServices] ICommandHandler<CreatePositionCommand, Guid> handler,
@@ -41,6 +43,48 @@ public sealed class PositionsController : ControllerBase
 
         var result = await handler.Handle(command, cancellationToken);
 
-        return result;
+        return EndpointResult<Guid>.Created(result);
+    }
+
+    [HttpPatch("{positionId:guid}")]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> UpdateAsync(
+        Guid positionId,
+        [FromBody] UpdatePositionRequest request,
+        [FromServices] ICommandHandler<UpdatePositionCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received update position request. PositionId {PositionId}. TraceId {TraceId}",
+            positionId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.Handle(
+            new UpdatePositionCommand(positionId, request.Name),
+            cancellationToken);
+    }
+
+    [HttpDelete("{positionId:guid}")]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> DeleteAsync(
+        Guid positionId,
+        [FromServices] ICommandHandler<DeletePositionCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received delete position request. PositionId {PositionId}. TraceId {TraceId}",
+            positionId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.Handle(
+            new DeletePositionCommand(positionId),
+            cancellationToken);
     }
 }

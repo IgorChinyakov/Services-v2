@@ -1,4 +1,5 @@
 using DirectoryService.Domain.Shared;
+using DirectoryService.Presentation.Extensions;
 
 namespace DirectoryService.Presentation.ApiResponse;
 
@@ -15,23 +16,9 @@ public class ErrorResult : IResult
     {
         ArgumentNullException.ThrowIfNull(httpContext);
 
-        int statusCode = GetStatusCodeFromErrorType(_error.Type);
-
         var envelope = Envelope.Fail(_error);
-        httpContext.Response.StatusCode = statusCode;
+        httpContext.Response.StatusCode = _error.ToStatusCode();
 
         return httpContext.Response.WriteAsJsonAsync(envelope);
     }
-
-    private static int GetStatusCodeFromErrorType(ErrorType errorType) =>
-        errorType switch
-        {
-            ErrorType.Validation => StatusCodes.Status400BadRequest,
-            ErrorType.NotFound => StatusCodes.Status404NotFound,
-            ErrorType.Conflict => StatusCodes.Status409Conflict,
-            ErrorType.Failure => StatusCodes.Status500InternalServerError,
-            ErrorType.Authentication => StatusCodes.Status401Unauthorized,
-            ErrorType.Authorization => StatusCodes.Status403Forbidden,
-            _ => StatusCodes.Status500InternalServerError,
-        };
 }

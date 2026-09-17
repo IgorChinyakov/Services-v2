@@ -194,8 +194,7 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         envelope.Should().NotBeNull();
         envelope!.IsError.Should().BeTrue();
-        envelope.Error.Should().NotBeNull();
-        envelope.Error!.Messages.Should().NotBeEmpty();
+        envelope.Errors.Should().NotBeEmpty();
     }
 
     private static string GetAlphabeticSuffix(int index)

@@ -38,7 +38,7 @@ public sealed class BusinessErrorCodeTests : DirectoryServiceTestsBase
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         envelope.Should().NotBeNull();
-        envelope!.Error!.Messages.Should().ContainSingle(message =>
+        envelope!.Errors.Should().ContainSingle(message =>
             message.Code == "location.name.duplicate");
     }
 
@@ -61,7 +61,7 @@ public sealed class BusinessErrorCodeTests : DirectoryServiceTestsBase
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         envelope.Should().NotBeNull();
-        envelope!.Error!.Messages.Should().ContainSingle(message =>
+        envelope!.Errors.Should().ContainSingle(message =>
             message.Code == "location.address.duplicate");
     }
 
@@ -85,7 +85,7 @@ public sealed class BusinessErrorCodeTests : DirectoryServiceTestsBase
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
         envelope.Should().NotBeNull();
-        envelope!.Error!.Messages.Should().ContainSingle(message =>
+        envelope!.Errors.Should().ContainSingle(message =>
             message.Code == "position.name.duplicate");
     }
 
@@ -107,7 +107,7 @@ public sealed class BusinessErrorCodeTests : DirectoryServiceTestsBase
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         envelope.Should().NotBeNull();
-        envelope!.Error!.Messages.Should().ContainSingle(message =>
+        envelope!.Errors.Should().ContainSingle(message =>
             message.Code == "department.not_found");
     }
 

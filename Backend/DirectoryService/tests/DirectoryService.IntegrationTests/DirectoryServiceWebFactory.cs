@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 using Respawn;
+using Respawn.Graph;
 using Testcontainers.PostgreSql;
 
 namespace DirectoryService.IntegrationTests;
@@ -138,7 +139,12 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
 
         _respawner = await Respawner.CreateAsync(
             _dbConnection,
-            new RespawnerOptions { DbAdapter = DbAdapter.Postgres, SchemasToInclude = ["public"] });
+            new RespawnerOptions
+            {
+                DbAdapter = DbAdapter.Postgres,
+                SchemasToInclude = ["public"],
+                TablesToIgnore = [new Table("__EFMigrationsHistory")],
+            });
     }
 
     private async Task EnsureLtreeExtensionAsync()

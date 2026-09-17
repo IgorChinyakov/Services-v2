@@ -5,10 +5,12 @@ public class SuccessResult<TValue> : IResult
 #pragma warning restore SA1649
 {
     private readonly TValue _value;
+    private readonly int _statusCode;
 
-    public SuccessResult(TValue value)
+    public SuccessResult(TValue value, int statusCode = StatusCodes.Status200OK)
     {
         _value = value;
+        _statusCode = statusCode;
     }
 
     public Task ExecuteAsync(HttpContext httpContext)
@@ -17,7 +19,7 @@ public class SuccessResult<TValue> : IResult
 
         var envelope = Envelope.Ok(_value);
 
-        httpContext.Response.StatusCode = StatusCodes.Status200OK;
+        httpContext.Response.StatusCode = _statusCode;
 
         return httpContext.Response.WriteAsJsonAsync(envelope);
     }

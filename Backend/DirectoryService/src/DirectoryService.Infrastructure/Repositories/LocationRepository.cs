@@ -82,6 +82,14 @@ public sealed class LocationRepository : ILocationRepository
         return location;
     }
 
+    public UnitResult<Error> Delete(Location location)
+    {
+        ArgumentNullException.ThrowIfNull(location);
+
+        _dbContext.Locations.Remove(location);
+        return UnitResult.Success<Error>();
+    }
+
     private async Task<Result<bool, Error>> NameExistsInternalAsync(
         string name,
         LocationId? excludedLocationId,

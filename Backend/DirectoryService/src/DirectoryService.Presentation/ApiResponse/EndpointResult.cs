@@ -1,13 +1,11 @@
-using System.Reflection;
 using CSharpFunctionalExtensions;
 using DirectoryService.Domain.Shared;
-using Microsoft.AspNetCore.Http.Metadata;
 using Microsoft.AspNetCore.Mvc;
 using IResult = Microsoft.AspNetCore.Http.IResult;
 
 namespace DirectoryService.Presentation.ApiResponse;
 
-public sealed class EndpointResult : IResult, IActionResult, IEndpointMetadataProvider
+public sealed class EndpointResult : IResult, IActionResult
 {
     private readonly IResult _result;
 
@@ -29,19 +27,6 @@ public sealed class EndpointResult : IResult, IActionResult, IEndpointMetadataPr
     }
 
     public static implicit operator EndpointResult(UnitResult<Error> result) => new(result);
-
-    static void IEndpointMetadataProvider.PopulateMetadata(MethodInfo method, EndpointBuilder builder)
-    {
-        ArgumentNullException.ThrowIfNull(method);
-        ArgumentNullException.ThrowIfNull(builder);
-
-        // Success
-        builder.Metadata.Add(new ProducesResponseTypeMetadata(200, typeof(Envelope), ["application/json"]));
-
-        // Common errors
-        builder.Metadata.Add(new ProducesResponseTypeMetadata(400, typeof(Envelope), ["application/json"]));
-        builder.Metadata.Add(new ProducesResponseTypeMetadata(500, typeof(Envelope), ["application/json"]));
-    }
 
     public static EndpointResult ToEndpointResult(UnitResult<Error> result) => new(result);
 }

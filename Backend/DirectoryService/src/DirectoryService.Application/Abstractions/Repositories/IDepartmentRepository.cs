@@ -39,6 +39,21 @@ public interface IDepartmentRepository
         LocationId locationId,
         CancellationToken cancellationToken);
 
+    Task<Result<bool, Error>> PositionLinkExistsAsync(
+        DepartmentId departmentId,
+        PositionId positionId,
+        CancellationToken cancellationToken);
+
+    Task<Result<DepartmentPosition, Error>> AddPositionLinkAsync(
+        DepartmentId departmentId,
+        PositionId positionId,
+        CancellationToken cancellationToken);
+
+    Task<Result<bool, Error>> RemovePositionLinkAsync(
+        DepartmentId departmentId,
+        PositionId positionId,
+        CancellationToken cancellationToken);
+
     Task<UnitResult<Error>> MoveParentAsync(
         DepartmentId departmentId,
         DepartmentId? parentId,

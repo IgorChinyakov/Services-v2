@@ -2,6 +2,7 @@ using CSharpFunctionalExtensions;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Database;
 using DirectoryService.Infrastructure.Errors;
@@ -27,17 +28,33 @@ public sealed class PositionRepository : IPositionRepository
         string name,
         CancellationToken cancellationToken)
     {
+        return await ActiveNameExistsInternalAsync(name, null, cancellationToken);
+    }
+
+    public async Task<Result<bool, Error>> ActiveNameExistsAsync(
+        string name,
+        PositionId excludedPositionId,
+        CancellationToken cancellationToken)
+    {
+        return await ActiveNameExistsInternalAsync(name, excludedPositionId, cancellationToken);
+    }
+
+    public async Task<Result<Position, Error>> GetActiveByIdAsync(
+        PositionId positionId,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            var normalizedName = name.Trim();
-
-            return await _dbContext.Positions
-                .AsNoTracking()
-                .AnyAsync(
-                    position => position.IsActive && position.Name.Value == normalizedName,
+            var position = await _dbContext.Positions
+                .FirstOrDefaultAsync(
+                    item => item.Id == positionId && item.IsActive,
                     cancellationToken);
+
+            return position is null
+                ? PositionErrors.NotFound(positionId.Value, nameof(positionId))
+                : position;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
@@ -45,10 +62,10 @@ public sealed class PositionRepository : IPositionRepository
         {
             _logger.LogError(
                 exception,
-                "Failed to check active position name uniqueness. PositionName {PositionName}",
-                name);
+                "Failed to load active position. PositionId {PositionId}",
+                positionId.Value);
 
-            return DatabaseErrors.OperationFailed("check active position name uniqueness");
+            return DatabaseErrors.OperationFailed("load active position");
         }
     }
 
@@ -103,5 +120,46 @@ public sealed class PositionRepository : IPositionRepository
         await _dbContext.Positions.AddAsync(position, cancellationToken);
 
         return position;
+    }
+
+    public UnitResult<Error> Delete(Position position)
+    {
+        ArgumentNullException.ThrowIfNull(position);
+
+        _dbContext.Positions.Remove(position);
+        return UnitResult.Success<Error>();
+    }
+
+    private async Task<Result<bool, Error>> ActiveNameExistsInternalAsync(
+        string name,
+        PositionId? excludedPositionId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var normalizedName = name.Trim();
+
+            return await _dbContext.Positions
+                .AsNoTracking()
+                .AnyAsync(
+                    position =>
+                        position.IsActive &&
+                        position.Name.Value == normalizedName &&
+                        (excludedPositionId == null || position.Id != excludedPositionId),
+                    cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to check active position name uniqueness. PositionName {PositionName}",
+                name);
+
+            return DatabaseErrors.OperationFailed("check active position name uniqueness");
+        }
     }
 }

@@ -69,4 +69,9 @@ public static class DepartmentErrors
         Error.Conflict(
             "department.position.duplicate",
             "Position is already linked to the department.");
+
+    public static Error PositionNotLinked() =>
+        Error.NotFound(
+            "department.position.not_found",
+            "Position is not linked to the department.");
 }

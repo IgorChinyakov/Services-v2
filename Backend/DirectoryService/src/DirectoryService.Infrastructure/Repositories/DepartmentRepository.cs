@@ -250,6 +250,80 @@ public sealed class DepartmentRepository : IDepartmentRepository
         }
     }
 
+    public async Task<Result<bool, Error>> PositionLinkExistsAsync(
+        DepartmentId departmentId,
+        PositionId positionId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _dbContext.Set<DepartmentPosition>()
+                .AsNoTracking()
+                .AnyAsync(
+                    link => link.DepartmentId == departmentId && link.PositionId == positionId,
+                    cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to check department position link. DepartmentId {DepartmentId}. PositionId {PositionId}",
+                departmentId.Value,
+                positionId.Value);
+
+            return DatabaseErrors.OperationFailed("check department position link");
+        }
+    }
+
+    public async Task<Result<DepartmentPosition, Error>> AddPositionLinkAsync(
+        DepartmentId departmentId,
+        PositionId positionId,
+        CancellationToken cancellationToken)
+    {
+        var link = new DepartmentPosition(departmentId, positionId);
+        await _dbContext.Set<DepartmentPosition>().AddAsync(link, cancellationToken);
+
+        return link;
+    }
+
+    public async Task<Result<bool, Error>> RemovePositionLinkAsync(
+        DepartmentId departmentId,
+        PositionId positionId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var link = await _dbContext.Set<DepartmentPosition>()
+                .FirstOrDefaultAsync(
+                    item => item.DepartmentId == departmentId && item.PositionId == positionId,
+                    cancellationToken);
+
+            if (link is null)
+                return false;
+
+            _dbContext.Set<DepartmentPosition>().Remove(link);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to remove department position link. DepartmentId {DepartmentId}. PositionId {PositionId}",
+                departmentId.Value,
+                positionId.Value);
+
+            return DatabaseErrors.OperationFailed("remove department position link");
+        }
+    }
+
     public async Task<UnitResult<Error>> MoveParentAsync(
         DepartmentId departmentId,
         DepartmentId? parentId,

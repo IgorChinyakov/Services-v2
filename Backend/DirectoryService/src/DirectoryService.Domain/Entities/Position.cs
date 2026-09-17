@@ -47,4 +47,12 @@ public class Position : Entity<PositionId>
     {
         _departmentPositions.Add(new DepartmentPosition(departmentId, Id));
     }
+
+    public void UpdateName(Name name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        Name = name;
+        UpdatedAt = DateTime.UtcNow;
+    }
 }

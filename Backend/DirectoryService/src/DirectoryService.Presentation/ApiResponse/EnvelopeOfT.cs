@@ -9,23 +9,23 @@ public record Envelope<T>
 {
     public T? Result { get; }
 
-    public Error? Error { get; }
+    public IReadOnlyList<ErrorMessage> Errors { get; }
 
-    public bool IsError => Error != null;
+    public bool IsError => Errors.Count > 0;
 
     public DateTime TimeGenerated { get; }
 
     [JsonConstructor]
-    private Envelope(T? result, Error? error)
+    private Envelope(T? result, IReadOnlyList<ErrorMessage> errors)
     {
         Result = result;
-        Error = error;
-        TimeGenerated = DateTime.Now;
+        Errors = errors;
+        TimeGenerated = DateTime.UtcNow;
     }
 
     public static Envelope<T> Ok(T? result = default) =>
-        new(result, null);
+        new(result, []);
 
     public static Envelope<T> Fail(Error error) =>
-        new(default, error);
+        new(default, error.Messages);
 }
