@@ -297,11 +297,11 @@ namespace DirectoryService.Infrastructure.Migrations
                             b1.Property<Guid>("LocationId")
                                 .HasColumnType("uuid");
 
-                            b1.Property<string>("Building")
+                            b1.Property<string>("Apartment")
                                 .IsRequired()
                                 .HasMaxLength(100)
                                 .HasColumnType("character varying(100)")
-                                .HasColumnName("building");
+                                .HasColumnName("apartment");
 
                             b1.Property<string>("City")
                                 .IsRequired()
@@ -309,11 +309,11 @@ namespace DirectoryService.Infrastructure.Migrations
                                 .HasColumnType("character varying(100)")
                                 .HasColumnName("city");
 
-                            b1.Property<string>("Country")
+                            b1.Property<string>("House")
                                 .IsRequired()
                                 .HasMaxLength(100)
                                 .HasColumnType("character varying(100)")
-                                .HasColumnName("country");
+                                .HasColumnName("house");
 
                             b1.Property<string>("Street")
                                 .IsRequired()
@@ -323,7 +323,7 @@ namespace DirectoryService.Infrastructure.Migrations
 
                             b1.HasKey("LocationId");
 
-                            b1.HasIndex("Country", "City", "Street", "Building")
+                            b1.HasIndex("City", "Street", "House", "Apartment")
                                 .IsUnique()
                                 .HasDatabaseName("ix_locations_address");
 

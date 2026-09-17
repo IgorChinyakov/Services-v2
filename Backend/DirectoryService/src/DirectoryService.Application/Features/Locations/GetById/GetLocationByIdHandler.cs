@@ -46,10 +46,10 @@ public sealed class GetLocationByIdHandler
                 item.Name.Value,
                 new AddressDto
                 {
-                    Country = item.Address.Country,
                     City = item.Address.City,
                     Street = item.Address.Street,
-                    Building = item.Address.Building,
+                    House = item.Address.House,
+                    Apartment = item.Address.Apartment,
                 },
                 item.IsActive,
                 item.CreatedAt,

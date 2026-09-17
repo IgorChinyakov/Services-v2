@@ -128,10 +128,10 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
             var location = new Location(
                 LocationName.Create(name ?? $"Location {number}").Value,
                 LocationAddress.Create(
-                    $"Country {number}",
                     $"City {number}",
                     $"Street {number}",
-                    $"Building {number}").Value);
+                    $"House {number}",
+                    $"Apartment {number}").Value);
 
             await dbContext.Locations.AddAsync(location);
             await dbContext.SaveChangesAsync();

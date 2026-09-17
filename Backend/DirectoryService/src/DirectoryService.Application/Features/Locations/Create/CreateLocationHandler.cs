@@ -5,6 +5,7 @@ using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Extensions.Validation;
 using DirectoryService.Domain.Entities;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Domain.ValueObjects.Location;
 using FluentValidation;
@@ -59,15 +60,24 @@ public sealed class CreateLocationHandler
 
         var nameResult = Name.Create(command.Name);
         var addressResult = Address.Create(
-            command.Address.Country,
             command.Address.City,
             command.Address.Street,
-            command.Address.Building);
+            command.Address.House,
+            command.Address.Apartment);
         if (nameResult.IsFailure)
             return nameResult.Error;
 
         if (addressResult.IsFailure)
             return addressResult.Error;
+
+        var nameExistsResult = await _locationRepository.NameExistsAsync(
+            nameResult.Value.Value,
+            cancellationToken);
+        if (nameExistsResult.IsFailure)
+            return nameExistsResult.Error;
+
+        if (nameExistsResult.Value)
+            return LocationErrors.NameDuplicate(nameof(CreateLocationCommand.Name));
 
         var location = new Location(
             nameResult.Value,

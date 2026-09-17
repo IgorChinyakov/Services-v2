@@ -29,15 +29,10 @@ seed_locations as (
     select
         id,
         format('Demo %s %s %s', city, location_type, lpad(number::text, 2, '0')) as name,
-        case city
-            when 'London' then 'United Kingdom'
-            when 'Tokyo' then 'Japan'
-            when 'Berlin' then 'Germany'
-            else 'Russia'
-        end as country,
         city,
         format('Demo Street %s', lpad(number::text, 2, '0')) as street,
-        format('%sA', number) as building,
+        format('%sA', number) as house,
+        format('Office %s', number) as apartment,
         number % 5 <> 0 as is_active,
         timestamptz '2025-01-01 09:00:00+00'
             + (((number * 11) % 37) * interval '1 day') as created_at
@@ -46,20 +41,20 @@ seed_locations as (
 insert into locations (
     id,
     name,
-    country,
     city,
     street,
-    building,
+    house,
+    apartment,
     is_active,
     created_at,
     updated_at)
 select
     id,
     name,
-    country,
     city,
     street,
-    building,
+    house,
+    apartment,
     is_active,
     created_at,
     created_at + interval '2 hours'

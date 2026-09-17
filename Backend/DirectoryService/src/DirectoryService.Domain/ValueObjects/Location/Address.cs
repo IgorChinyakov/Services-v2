@@ -5,58 +5,58 @@ namespace DirectoryService.Domain.ValueObjects.Location;
 
 public class Address : ValueObject
 {
-    public string Country { get; }
-
     public string City { get; }
 
     public string Street { get; }
 
-    public string Building { get; }
+    public string House { get; }
+
+    public string Apartment { get; }
 
     public const int MIN_PART_LENGTH = 2;
     public const int MAX_PART_LENGTH = 100;
 
     private Address(
-        string country,
         string city,
         string street,
-        string building)
+        string house,
+        string apartment)
     {
-        Country = country;
         City = city;
         Street = street;
-        Building = building;
+        House = house;
+        Apartment = apartment;
     }
 
     public static Result<Address, Error> Create(
-        string country,
         string city,
         string street,
-        string building)
+        string house,
+        string apartment)
     {
-        var validationResult = Validate(country, city, street, building);
+        var validationResult = Validate(city, street, house, apartment);
         if (validationResult.IsFailure)
             return validationResult.Error;
 
         return new Address(
-            country.Trim(),
             city.Trim(),
             street.Trim(),
-            building.Trim());
+            house.Trim(),
+            apartment.Trim());
     }
 
     public static UnitResult<Error> Validate(
-        string country,
         string city,
         string street,
-        string building)
+        string house,
+        string apartment)
     {
         var messages = new List<ErrorMessage>();
 
-        ValidateField(country, nameof(Country), "Country", messages);
         ValidateField(city, nameof(City), "City", messages);
         ValidateField(street, nameof(Street), "Street", messages);
-        ValidateField(building, nameof(Building), "Building", messages);
+        ValidateField(house, nameof(House), "House", messages);
+        ValidateField(apartment, nameof(Apartment), "Apartment", messages);
 
         return messages.Count > 0
             ? GeneralErrors.Validation(messages)
@@ -67,20 +67,20 @@ public class Address : ValueObject
     {
         var parts = new List<string>();
 
-        parts.Add(Country);
         parts.Add(City);
         parts.Add(Street);
-        parts.Add(Building);
+        parts.Add(House);
+        parts.Add(Apartment);
 
         return string.Join(", ", parts);
     }
 
     protected override IEnumerable<object?> GetEqualityComponents()
     {
-        yield return Country;
         yield return City;
         yield return Street;
-        yield return Building;
+        yield return House;
+        yield return Apartment;
     }
 
     private static void ValidateField(

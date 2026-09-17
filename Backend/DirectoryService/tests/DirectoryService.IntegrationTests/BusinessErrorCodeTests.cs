@@ -114,9 +114,9 @@ public sealed class BusinessErrorCodeTests : DirectoryServiceTestsBase
     private static AddressDto CreateAddress(int number) =>
         new()
         {
-            Country = $"Country {number}",
             City = $"City {number}",
             Street = $"Street {number}",
-            Building = $"Building {number}",
+            House = $"House {number}",
+            Apartment = $"Apartment {number}",
         };
 }

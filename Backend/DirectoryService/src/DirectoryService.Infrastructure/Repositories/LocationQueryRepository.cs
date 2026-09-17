@@ -174,10 +174,10 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                         from department_locations dl
                         where dl.location_id = l.id
                     ) as DepartmentCount,
-                    l.country as Country,
                     l.city as City,
                     l.street as Street,
-                    l.building as Building
+                    l.house as House,
+                    l.apartment as Apartment
                 {filtersSql}
                 order by {sortColumn} {sortDirection}, l.id asc
                 limit @PageSize
@@ -205,7 +205,7 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                 locationRow.IsActive,
                 locationRow.CreatedAt,
                 locationRow.DepartmentCount),
-            splitOn: "Country");
+            splitOn: "City");
 
         return locations.ToList();
     }

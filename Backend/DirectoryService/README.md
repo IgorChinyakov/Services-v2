@@ -57,7 +57,7 @@ Directory Service - единый справочник организационн
 
 - `Id` - `LocationId`;
 - `Name` - value object, уникальное имя локации;
-- `Address` - value object с полями `Country`, `City`, `Street`, `Building`;
+- `Address` - value object с полями `City`, `Street`, `House`, `Apartment`;
 - `IsActive`;
 - `CreatedAt`, `UpdatedAt`;
 - `DepartmentLocations` - связи с подразделениями.

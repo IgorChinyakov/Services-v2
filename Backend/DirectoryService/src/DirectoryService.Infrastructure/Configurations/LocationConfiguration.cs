@@ -31,11 +31,6 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
 
         builder.OwnsOne(x => x.Address, addressBuilder =>
         {
-            addressBuilder.Property(x => x.Country)
-                .HasColumnName("country")
-                .HasMaxLength(Address.MAX_PART_LENGTH)
-                .IsRequired();
-
             addressBuilder.Property(x => x.City)
                 .HasColumnName("city")
                 .HasMaxLength(Address.MAX_PART_LENGTH)
@@ -46,17 +41,22 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
                 .HasMaxLength(Address.MAX_PART_LENGTH)
                 .IsRequired();
 
-            addressBuilder.Property(x => x.Building)
-                .HasColumnName("building")
+            addressBuilder.Property(x => x.House)
+                .HasColumnName("house")
+                .HasMaxLength(Address.MAX_PART_LENGTH)
+                .IsRequired();
+
+            addressBuilder.Property(x => x.Apartment)
+                .HasColumnName("apartment")
                 .HasMaxLength(Address.MAX_PART_LENGTH)
                 .IsRequired();
 
             addressBuilder.HasIndex(x => new
                 {
-                    x.Country,
                     x.City,
                     x.Street,
-                    x.Building,
+                    x.House,
+                    x.Apartment,
                 })
                 .IsUnique()
                 .HasDatabaseName("ix_locations_address");

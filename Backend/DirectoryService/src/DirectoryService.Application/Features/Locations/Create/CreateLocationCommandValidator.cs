@@ -19,10 +19,10 @@ public sealed class CreateLocationCommandValidator : AbstractValidator<CreateLoc
                 address => address is null
                     ? GeneralErrors.Validation("Address is required.", nameof(CreateLocationCommand.Address))
                     : Address.Validate(
-                        address.Country,
                         address.City,
                         address.Street,
-                        address.Building),
+                        address.House,
+                        address.Apartment),
                 (context, message) => ResolveAddressPropertyPath(context, message));
     }
 

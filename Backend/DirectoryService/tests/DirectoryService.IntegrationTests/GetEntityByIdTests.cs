@@ -41,7 +41,9 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
         envelope.Result.Should().NotBeNull();
         envelope.Result!.Id.Should().Be(locationId.Value);
         envelope.Result.Name.Should().Be("Main Office");
-        envelope.Result.Address.Country.Should().Be("Country 1");
+        envelope.Result.Address.City.Should().Be("City 1");
+        envelope.Result.Address.House.Should().Be("House 1");
+        envelope.Result.Address.Apartment.Should().Be("Apartment 1");
     }
 
     [Fact]
