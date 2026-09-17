@@ -4,12 +4,14 @@ using DirectoryService.Application.Features.Departments.AddPosition;
 using DirectoryService.Application.Features.Departments.CleanupInactive;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.Get;
+using DirectoryService.Application.Features.Departments.GetAncestors;
 using DirectoryService.Application.Features.Departments.GetById;
 using DirectoryService.Application.Features.Departments.GetChildren;
-using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
+using DirectoryService.Application.Features.Departments.GetTree;
 using DirectoryService.Application.Features.Departments.RemoveLocation;
 using DirectoryService.Application.Features.Departments.RemovePosition;
+using DirectoryService.Application.Features.Departments.SearchTree;
 using DirectoryService.Application.Features.Departments.SoftDelete;
 using DirectoryService.Application.Features.Departments.Update;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
@@ -71,11 +73,17 @@ public static class DependencyInjectionExtensions
             IQueryHandler<GetDepartmentsQuery, PagedList<DepartmentListItemDto>>,
             GetDepartmentsHandler>();
         services.AddScoped<
-            IQueryHandler<GetRootDepartmentsQuery, PagedList<RootDepartmentDto>>,
-            GetRootDepartmentsHandler>();
+            IQueryHandler<GetDepartmentTreeQuery, IReadOnlyList<DepartmentTreeNodeDto>>,
+            GetDepartmentTreeHandler>();
         services.AddScoped<
-            IQueryHandler<GetDepartmentChildrenQuery, PagedList<DepartmentNodeDto>>,
+            IQueryHandler<GetDepartmentChildrenQuery, IReadOnlyList<DepartmentTreeNodeDto>>,
             GetDepartmentChildrenHandler>();
+        services.AddScoped<
+            IQueryHandler<GetDepartmentAncestorsQuery, IReadOnlyList<DepartmentTreeNodeDto>>,
+            GetDepartmentAncestorsHandler>();
+        services.AddScoped<
+            IQueryHandler<SearchDepartmentTreeQuery, IReadOnlyList<DepartmentTreeSearchResultDto>>,
+            SearchDepartmentTreeHandler>();
         services.AddScoped<
             IQueryHandler<GetTopDepartmentsByPositionsQuery, IReadOnlyList<TopDepartmentByPositionsDto>>,
             GetTopDepartmentsByPositionsHandler>();

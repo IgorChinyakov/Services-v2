@@ -34,30 +34,38 @@ public sealed class SoftDeleteReadVisibilityTests : DirectoryServiceTestsBase
 
         // Act
         var listResponse = await client.GetAsync("/api/departments");
-        var rootsResponse = await client.GetAsync("/api/departments/roots");
+        var treeResponse = await client.GetAsync("/api/departments/tree");
         var childrenResponse = await client.GetAsync(
             $"/api/departments/{activeRootId.Value}/children");
+        var ancestorsResponse = await client.GetAsync(
+            $"/api/departments/{deletedChildId.Value}/ancestors");
+        var searchResponse = await client.GetAsync(
+            "/api/departments/tree/search?q=deleted");
 
         var listEnvelope = await listResponse.Content
             .ReadFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>();
-        var rootsEnvelope = await rootsResponse.Content
-            .ReadFromJsonAsync<Envelope<PagedList<RootDepartmentDto>>>();
+        var treeEnvelope = await treeResponse.Content
+            .ReadFromJsonAsync<Envelope<IReadOnlyList<DepartmentTreeNodeDto>>>();
         var childrenEnvelope = await childrenResponse.Content
-            .ReadFromJsonAsync<Envelope<PagedList<DepartmentNodeDto>>>();
+            .ReadFromJsonAsync<Envelope<IReadOnlyList<DepartmentTreeNodeDto>>>();
+        var searchEnvelope = await searchResponse.Content
+            .ReadFromJsonAsync<Envelope<IReadOnlyList<DepartmentTreeSearchResultDto>>>();
 
         // Assert
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        rootsResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        treeResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         childrenResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        ancestorsResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        searchResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         listEnvelope!.Result!.Items.Should().ContainSingle(item => item.Id == activeRootId.Value);
         listEnvelope.Result.Items.Should().NotContain(item =>
             item.Id == deletedRootId.Value || item.Id == deletedChildId.Value);
 
-        rootsEnvelope!.Result!.Items.Should().ContainSingle(item => item.Id == activeRootId.Value);
-        rootsEnvelope.Result.Items.Should().NotContain(item => item.Id == deletedRootId.Value);
+        treeEnvelope!.Result.Should().ContainSingle(item => item.Id == activeRootId.Value);
+        treeEnvelope.Result.Should().NotContain(item => item.Id == deletedRootId.Value);
 
-        childrenEnvelope!.Result!.Items.Should().BeEmpty();
-        childrenEnvelope.Result.TotalCount.Should().Be(0);
+        childrenEnvelope!.Result.Should().BeEmpty();
+        searchEnvelope!.Result.Should().BeEmpty();
     }
 }

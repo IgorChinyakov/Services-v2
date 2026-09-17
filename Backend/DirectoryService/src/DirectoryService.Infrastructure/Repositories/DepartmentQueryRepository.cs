@@ -1,10 +1,8 @@
 using CSharpFunctionalExtensions;
 using Dapper;
 using DirectoryService.Application.Abstractions.Repositories;
-using DirectoryService.Application.Features.Departments.GetChildren;
-using DirectoryService.Application.Features.Departments.GetRoots;
-using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Errors;
 using Microsoft.Extensions.Logging;
@@ -28,84 +26,111 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
     public async Task<Result<IReadOnlyList<TopDepartmentByPositionsDto>, Error>> GetTopByPositionsAsync(
         CancellationToken cancellationToken)
     {
+        const string sql = """
+                           select d.id as Id,
+                                  d.name as Name,
+                                  d.slug as Slug,
+                                  count(p.id) as PositionsCount
+                           from departments as d
+                           left join department_positions as dp on d.id = dp.department_id
+                           left join positions p on p.id = dp.position_id and p.is_active = true
+                           where d.is_active = true
+                           group by d.id
+                           order by PositionsCount desc, d.id
+                           limit 5
+                           """;
+
         try
         {
-            var sql = BuildSql();
-
-            _logger.LogInformation("Loading top departments by positions count from database");
-
             await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
-
-            var command = new CommandDefinition(
-                sql,
-                cancellationToken: cancellationToken);
-
-            var departments = await connection.QueryAsync<TopDepartmentByPositionsDto>(command);
-            var departmentList = departments.AsList();
+            var command = new CommandDefinition(sql, cancellationToken: cancellationToken);
+            var departments = (await connection.QueryAsync<TopDepartmentByPositionsDto>(command)).AsList();
 
             _logger.LogInformation(
-                "Top departments by positions count loaded from database. ItemCount: {ItemCount}",
-                departmentList.Count);
+                "Top departments by positions count loaded. ItemCount {ItemCount}",
+                departments.Count);
 
-            return departmentList;
+            return departments;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
         catch (Exception exception)
         {
-            _logger.LogError(
-                exception,
-                "Failed to load top departments by positions count");
-
-            return DatabaseErrors.OperationFailed(
-                "load top departments by positions count");
+            _logger.LogError(exception, "Failed to load top departments by positions count");
+            return DatabaseErrors.OperationFailed("load top departments by positions count");
         }
     }
 
-    public async Task<Result<PagedList<RootDepartmentDto>, Error>> GetRootsAsync(
-        GetRootDepartmentsQuery query,
+    public async Task<Result<IReadOnlyList<DepartmentTreeNodeDto>, Error>> GetTreeAsync(
         CancellationToken cancellationToken)
     {
+        const string sql = """
+                           select d.id as Id,
+                                  d.name as Name,
+                                  d.slug as Slug,
+                                  d.path::text as Path,
+                                  d.depth as Depth,
+                                  exists(
+                                      select 1
+                                      from departments child
+                                      where child.parent_id = d.id
+                                        and child.is_active = true
+                                  ) as HasChildren
+                           from departments d
+                           where d.parent_id is null
+                             and d.is_active = true
+                           order by d.name, d.id
+                           """;
+
+        return await QueryTreeNodesAsync(sql, null, "load department tree", cancellationToken);
+    }
+
+    public async Task<Result<IReadOnlyList<DepartmentTreeNodeDto>, Error>> GetChildrenAsync(
+        Guid departmentId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           select exists(
+                               select 1
+                               from departments
+                               where id = @DepartmentId
+                                 and is_active = true
+                           );
+
+                           select child.id as Id,
+                                  child.name as Name,
+                                  child.slug as Slug,
+                                  child.path::text as Path,
+                                  child.depth as Depth,
+                                  exists(
+                                      select 1
+                                      from departments nested
+                                      where nested.parent_id = child.id
+                                        and nested.is_active = true
+                                  ) as HasChildren
+                           from departments child
+                           where child.parent_id = @DepartmentId
+                             and child.is_active = true
+                           order by child.name, child.id
+                           """;
+
         try
         {
-            var sql = BuildRootDepartmentsSql();
-            var parameters = new
-            {
-                Offset = (query.Page - 1) * query.Size, RootLimit = query.Size, ChildLimit = query.Prefetch,
-            };
-
-            _logger.LogInformation(
-                "Loading root departments from database. Page: {Page}, Size: {Size}, Prefetch: {Prefetch}",
-                query.Page,
-                query.Size,
-                query.Prefetch);
-
             await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
-
             var command = new CommandDefinition(
                 sql,
-                parameters,
+                new { DepartmentId = departmentId },
                 cancellationToken: cancellationToken);
 
             using var result = await connection.QueryMultipleAsync(command);
+            var departmentExists = await result.ReadSingleAsync<bool>();
+            if (!departmentExists)
+                return DepartmentErrors.NotFound(departmentId, nameof(departmentId));
 
-            var totalCount = await result.ReadSingleAsync<long>();
-            var rows = (await result.ReadAsync<DepartmentTreeRow>()).AsList();
-            var roots = MapRoots(rows);
-
-            _logger.LogInformation(
-                "Root departments loaded from database. RootCount: {RootCount}, TotalCount: {TotalCount}, Page: {Page}",
-                roots.Count,
-                totalCount,
-                query.Page);
-
-            return PagedList<RootDepartmentDto>.Create(
-                roots,
-                query.Page,
-                query.Size,
-                totalCount);
+            var children = (await result.ReadAsync<DepartmentTreeNodeDto>()).AsList();
+            return children;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -115,244 +140,219 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
         {
             _logger.LogError(
                 exception,
-                "Failed to load root departments. Page {Page}. Size {Size}. Prefetch {Prefetch}",
-                query.Page,
-                query.Size,
-                query.Prefetch);
-
-            return DatabaseErrors.OperationFailed("load root departments");
-        }
-    }
-
-    public async Task<Result<PagedList<DepartmentNodeDto>, Error>> GetChildrenAsync(
-        GetDepartmentChildrenQuery query,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var sql = BuildDepartmentChildrenSql();
-            var parameters = new { query.ParentId, Offset = (query.Page - 1) * query.Size, PageSize = query.Size, };
-
-            _logger.LogInformation(
-                "Loading department children from database. ParentId: {ParentId}, Page: {Page}, Size: {Size}",
-                query.ParentId,
-                query.Page,
-                query.Size);
-
-            await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
-
-            var command = new CommandDefinition(
-                sql,
-                parameters,
-                cancellationToken: cancellationToken);
-
-            using var result = await connection.QueryMultipleAsync(command);
-
-            var totalCount = await result.ReadSingleAsync<long>();
-            var rows = (await result.ReadAsync<DepartmentTreeRow>()).AsList();
-            var children = rows.Select(MapNode).ToList();
-
-            _logger.LogInformation(
-                "Department children loaded from database. ParentId: {ParentId}, ItemCount: {ItemCount}, " +
-                "TotalCount: {TotalCount}, Page: {Page}",
-                query.ParentId,
-                children.Count,
-                totalCount,
-                query.Page);
-
-            return PagedList<DepartmentNodeDto>.Create(
-                children,
-                query.Page,
-                query.Size,
-                totalCount);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception exception)
-        {
-            _logger.LogError(
-                exception,
-                "Failed to load department children. ParentId {ParentId}. Page {Page}. Size {Size}",
-                query.ParentId,
-                query.Page,
-                query.Size);
+                "Failed to load department children. DepartmentId {DepartmentId}",
+                departmentId);
 
             return DatabaseErrors.OperationFailed("load department children");
         }
     }
 
-    private static string BuildSql()
+    public async Task<Result<IReadOnlyList<DepartmentTreeNodeDto>, Error>> GetAncestorsAsync(
+        Guid departmentId,
+        CancellationToken cancellationToken)
     {
-        return """
-               select d.id                  as Id,
-                      d.name                as Name,
-                      d.slug                as Slug,
-                      count(p.id) as PositionsCount
-               from departments as d
-                        left join department_positions as dp on d.id = dp.department_id
-                        left join positions p on p.id = dp.position_id and p.is_active = true
-               where d.is_active = true
-               group by d.id
-               order by PositionsCount desc, d.id
-               limit 5
-               """;
-    }
+        const string sql = """
+                           select exists(
+                               select 1
+                               from departments
+                               where id = @DepartmentId
+                                 and is_active = true
+                           );
 
-    private static string BuildRootDepartmentsSql()
-    {
-        return """
-               select count(*)
-               from departments
-               where parent_id is null
-                 and is_active = true;
+                           with target as (
+                               select path
+                               from departments
+                               where id = @DepartmentId
+                                 and is_active = true
+                           )
+                           select ancestor.id as Id,
+                                  ancestor.name as Name,
+                                  ancestor.slug as Slug,
+                                  ancestor.path::text as Path,
+                                  ancestor.depth as Depth,
+                                  exists(
+                                      select 1
+                                      from departments child
+                                      where child.parent_id = ancestor.id
+                                        and child.is_active = true
+                                  ) as HasChildren
+                           from target
+                           join departments ancestor
+                             on ancestor.path @> target.path
+                            and ancestor.id <> @DepartmentId
+                            and ancestor.is_active = true
+                           order by ancestor.depth, ancestor.id
+                           """;
 
-               with roots as (select *
-                              from departments
-                              where parent_id is null
-                              and is_active = true
-                              order by created_at, id
-                              limit @RootLimit offset @Offset)
-
-               select r.id                               as Id,
-                      r.parent_id                        as ParentId,
-                      r.name                             as Name,
-                      r.slug                             as Slug,
-                      r.path::text                       as Path,
-                      r.depth                            as Depth,
-                      r.is_active                        as IsActive,
-                      r.created_at                       as CreatedAt,
-                      r.updated_at                       as UpdatedAt,
-                      exists(select 1
-                             from departments d
-                             where d.parent_id = r.id and
-                                   d.is_active = true
-                             offset @ChildLimit limit 1) as HasMoreChildren
-               from roots r
-
-               union all
-
-               select c.id                             as Id,
-                      c.parent_id                      as ParentId,
-                      c.name                           as Name,
-                      c.slug                           as Slug,
-                      c.path::text                     as Path,
-                      c.depth                          as Depth,
-                      c.is_active                      as IsActive,
-                      c.created_at                     as CreatedAt,
-                      c.updated_at                     as UpdatedAt,
-                      exists(select 1
-                             from departments d
-                             where d.parent_id = c.id and
-                                   d.is_active = true) as HasMoreChildren
-               from roots r
-                        cross join lateral (
-                   select *
-                   from departments c
-                   where c.parent_id = r.id
-                     and c.is_active = true
-                   order by c.created_at, c.id
-                   limit @ChildLimit
-                   ) c
-               """;
-    }
-
-    private static string BuildDepartmentChildrenSql()
-    {
-        return """
-               select count(*)
-               from departments
-               where parent_id = @ParentId
-                 and is_active = true;
-
-               select c.id         as Id,
-                      c.parent_id  as ParentId,
-                      c.name       as Name,
-                      c.slug       as Slug,
-                      c.path::text as Path,
-                      c.depth      as Depth,
-                      c.is_active  as IsActive,
-                      c.created_at as CreatedAt,
-                      c.updated_at as UpdatedAt,
-                      exists(
-                            select 1 from departments d
-                            where d.is_active = true and
-                            d.parent_id = c.id
-                      ) as HasMoreChildren
-               from departments c
-               where parent_id = @ParentId
-                 and is_active = true
-               order by created_at, id
-               offset @Offset
-               limit @PageSize
-               """;
-    }
-
-    private static IReadOnlyList<RootDepartmentDto> MapRoots(
-        IReadOnlyCollection<DepartmentTreeRow> rows)
-    {
-        var childrenByParentId = rows
-            .Where(row => row.ParentId.HasValue)
-            .GroupBy(row => row.ParentId!.Value)
-            .ToDictionary(group => group.Key, group => group.ToList());
-
-        var roots = new List<RootDepartmentDto>();
-
-        foreach (var root in rows.Where(row => row.ParentId is null))
+        try
         {
-            var children = childrenByParentId.TryGetValue(root.Id, out var childRows)
-                ? childRows.Select(MapNode).ToList()
-                : [];
+            await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+            var command = new CommandDefinition(
+                sql,
+                new { DepartmentId = departmentId },
+                cancellationToken: cancellationToken);
 
-            roots.Add(MapRoot(root, children));
+            using var result = await connection.QueryMultipleAsync(command);
+            var departmentExists = await result.ReadSingleAsync<bool>();
+            if (!departmentExists)
+                return DepartmentErrors.NotFound(departmentId, nameof(departmentId));
+
+            var ancestors = (await result.ReadAsync<DepartmentTreeNodeDto>()).AsList();
+            return ancestors;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to load department ancestors. DepartmentId {DepartmentId}",
+                departmentId);
 
-        return roots;
+            return DatabaseErrors.OperationFailed("load department ancestors");
+        }
     }
 
-    private static RootDepartmentDto MapRoot(
-        DepartmentTreeRow row,
-        IReadOnlyList<DepartmentNodeDto> children)
+    public async Task<Result<IReadOnlyList<DepartmentTreeSearchResultDto>, Error>> SearchTreeAsync(
+        string search,
+        CancellationToken cancellationToken)
     {
-        return new RootDepartmentDto(
-            row.Id,
-            row.ParentId,
-            row.Name,
-            row.Slug,
-            row.Path,
-            row.Depth,
-            row.IsActive,
-            row.CreatedAt,
-            row.UpdatedAt,
-            row.HasMoreChildren,
-            children);
+        const string sql = """
+                           with matches as (
+                               select d.id,
+                                      d.name,
+                                      d.slug,
+                                      d.path,
+                                      d.depth
+                               from departments d
+                               where d.is_active = true
+                                 and d.name ilike @Search
+                           )
+                           select match.id as MatchId,
+                                  match.name as MatchName,
+                                  match.slug as MatchSlug,
+                                  match.path::text as MatchPath,
+                                  match.depth as MatchDepth,
+                                  exists(
+                                      select 1
+                                      from departments child
+                                      where child.parent_id = match.id
+                                        and child.is_active = true
+                                  ) as MatchHasChildren,
+                                  ancestor.id as AncestorId,
+                                  ancestor.name as AncestorName,
+                                  ancestor.slug as AncestorSlug,
+                                  ancestor.path::text as AncestorPath,
+                                  ancestor.depth as AncestorDepth,
+                                  case
+                                      when ancestor.id is null then false
+                                      else exists(
+                                          select 1
+                                          from departments child
+                                          where child.parent_id = ancestor.id
+                                            and child.is_active = true
+                                      )
+                                  end as AncestorHasChildren
+                           from matches match
+                           left join departments ancestor
+                             on ancestor.path @> match.path
+                            and ancestor.id <> match.id
+                            and ancestor.is_active = true
+                           order by match.name, match.id, ancestor.depth, ancestor.id
+                           """;
+
+        try
+        {
+            await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+            var command = new CommandDefinition(
+                sql,
+                new { Search = $"%{search}%" },
+                cancellationToken: cancellationToken);
+
+            var rows = (await connection.QueryAsync<DepartmentTreeSearchRow>(command)).AsList();
+            var results = rows
+                .GroupBy(row => row.MatchId)
+                .Select(group =>
+                {
+                    var match = group.First();
+                    var department = new DepartmentTreeNodeDto(
+                        match.MatchId,
+                        match.MatchName,
+                        match.MatchSlug,
+                        match.MatchPath,
+                        match.MatchDepth,
+                        match.MatchHasChildren);
+
+                    var ancestors = group
+                        .Where(row => row.AncestorId.HasValue)
+                        .OrderBy(row => row.AncestorDepth)
+                        .Select(row => new DepartmentTreeNodeDto(
+                            row.AncestorId!.Value,
+                            row.AncestorName!,
+                            row.AncestorSlug!,
+                            row.AncestorPath!,
+                            row.AncestorDepth!.Value,
+                            row.AncestorHasChildren))
+                        .ToList();
+
+                    return new DepartmentTreeSearchResultDto(department, ancestors);
+                })
+                .ToList();
+
+            return results;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to search department tree. Search {Search}", search);
+            return DatabaseErrors.OperationFailed("search department tree");
+        }
     }
 
-    private static DepartmentNodeDto MapNode(DepartmentTreeRow row)
+    private async Task<Result<IReadOnlyList<DepartmentTreeNodeDto>, Error>> QueryTreeNodesAsync(
+        string sql,
+        object? parameters,
+        string operation,
+        CancellationToken cancellationToken)
     {
-        return new DepartmentNodeDto(
-            row.Id,
-            row.ParentId,
-            row.Name,
-            row.Slug,
-            row.Path,
-            row.Depth,
-            row.IsActive,
-            row.CreatedAt,
-            row.UpdatedAt,
-            row.HasMoreChildren);
+        try
+        {
+            await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+            var command = new CommandDefinition(
+                sql,
+                parameters,
+                cancellationToken: cancellationToken);
+
+            var nodes = (await connection.QueryAsync<DepartmentTreeNodeDto>(command)).AsList();
+            return nodes;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to {Operation}", operation);
+            return DatabaseErrors.OperationFailed(operation);
+        }
     }
 
-    private sealed record DepartmentTreeRow(
-        Guid Id,
-        Guid? ParentId,
-        string Name,
-        string Slug,
-        string Path,
-        short Depth,
-        bool IsActive,
-        DateTime CreatedAt,
-        DateTime UpdatedAt,
-        bool HasMoreChildren);
+    private sealed record DepartmentTreeSearchRow(
+        Guid MatchId,
+        string MatchName,
+        string MatchSlug,
+        string MatchPath,
+        short MatchDepth,
+        bool MatchHasChildren,
+        Guid? AncestorId,
+        string? AncestorName,
+        string? AncestorSlug,
+        string? AncestorPath,
+        short? AncestorDepth,
+        bool AncestorHasChildren);
 }

@@ -1,7 +1,4 @@
 using CSharpFunctionalExtensions;
-using DirectoryService.Application.Features.Departments.GetChildren;
-using DirectoryService.Application.Features.Departments.GetRoots;
-using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
 using DirectoryService.Domain.Shared;
 
@@ -12,11 +9,18 @@ public interface IDepartmentQueryRepository
     Task<Result<IReadOnlyList<TopDepartmentByPositionsDto>, Error>> GetTopByPositionsAsync(
         CancellationToken cancellationToken);
 
-    Task<Result<PagedList<RootDepartmentDto>, Error>> GetRootsAsync(
-        GetRootDepartmentsQuery query,
+    Task<Result<IReadOnlyList<DepartmentTreeNodeDto>, Error>> GetTreeAsync(
         CancellationToken cancellationToken);
 
-    Task<Result<PagedList<DepartmentNodeDto>, Error>> GetChildrenAsync(
-        GetDepartmentChildrenQuery query,
+    Task<Result<IReadOnlyList<DepartmentTreeNodeDto>, Error>> GetChildrenAsync(
+        Guid departmentId,
+        CancellationToken cancellationToken);
+
+    Task<Result<IReadOnlyList<DepartmentTreeNodeDto>, Error>> GetAncestorsAsync(
+        Guid departmentId,
+        CancellationToken cancellationToken);
+
+    Task<Result<IReadOnlyList<DepartmentTreeSearchResultDto>, Error>> SearchTreeAsync(
+        string search,
         CancellationToken cancellationToken);
 }

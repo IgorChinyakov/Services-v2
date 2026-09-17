@@ -18,7 +18,7 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
     }
 
     [Fact]
-    public async Task GetRoots_WhenCacheIsEmpty_ShouldStoreResultInRedis()
+    public async Task GetTree_WhenCacheIsEmpty_ShouldStoreResultInRedis()
     {
         // Arrange
         await SeedDepartmentAsync("Head Office", "head");
@@ -26,7 +26,7 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
         var keysBeforeQuery = await GetRedisDatabaseSizeAsync();
 
         // Act
-        var response = await client.GetAsync(RootsEndpoint());
+        var response = await client.GetAsync(TreeEndpoint);
         var keysAfterQuery = await GetRedisDatabaseSizeAsync();
 
         // Assert
@@ -35,38 +35,20 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
     }
 
     [Fact]
-    public async Task GetRoots_WhenSameRequestIsRepeated_ShouldReturnCachedResult()
+    public async Task GetTree_WhenSameRequestIsRepeated_ShouldReturnCachedResult()
     {
         // Arrange
         await SeedDepartmentAsync("Head Office", "head");
         using var client = CreateClient();
-        var firstResponse = await client.GetAsync(RootsEndpoint());
+        var firstResponse = await client.GetAsync(TreeEndpoint);
         firstResponse.EnsureSuccessStatusCode();
         await SeedDepartmentAsync("Sales Department", "sales");
 
         // Act
-        var secondResult = await GetRootsAsync(client, RootsEndpoint());
+        var secondResult = await GetTreeAsync(client);
 
         // Assert
-        secondResult.Items.Select(department => department.Slug).Should().Equal("head");
-    }
-
-    [Fact]
-    public async Task GetRoots_WithDifferentPagination_ShouldUseDifferentCacheKeys()
-    {
-        // Arrange
-        await SeedDepartmentAsync("Head Office", "head");
-        await SeedDepartmentAsync("Sales Department", "sales");
-        using var client = CreateClient();
-
-        // Act
-        var firstPage = await GetRootsAsync(client, RootsEndpoint(page: 1, size: 1));
-        var secondPage = await GetRootsAsync(client, RootsEndpoint(page: 2, size: 1));
-
-        // Assert
-        firstPage.Items.Should().ContainSingle();
-        secondPage.Items.Should().ContainSingle();
-        secondPage.Items[0].Id.Should().NotBe(firstPage.Items[0].Id);
+        secondResult.Select(department => department.Slug).Should().Equal("head");
     }
 
     [Fact]
@@ -76,7 +58,7 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
         await SeedDepartmentAsync("Head Office", "head");
         var locationId = await SeedLocationAsync();
         using var client = CreateClient();
-        (await client.GetAsync(RootsEndpoint())).EnsureSuccessStatusCode();
+        (await client.GetAsync(TreeEndpoint)).EnsureSuccessStatusCode();
         var request = new CreateDepartmentRequest
         {
             Name = "Sales Department",
@@ -86,11 +68,11 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
 
         // Act
         var commandResponse = await client.PostAsJsonAsync("/api/departments", request);
-        var queryResult = await GetRootsAsync(client, RootsEndpoint());
+        var queryResult = await GetTreeAsync(client);
 
         // Assert
         commandResponse.StatusCode.Should().Be(HttpStatusCode.Created);
-        queryResult.Items.Select(department => department.Slug)
+        queryResult.Select(department => department.Slug)
             .Should().BeEquivalentTo(["head", "sales"]);
     }
 
@@ -116,8 +98,8 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
 
         // Assert
         commandResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        firstParentResult.Items.Should().BeEmpty();
-        secondParentResult.Items.Should().ContainSingle(department => department.Id == childId.Value);
+        firstParentResult.Should().BeEmpty();
+        secondParentResult.Should().ContainSingle(department => department.Id == childId.Value);
     }
 
     [Fact]
@@ -127,15 +109,15 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
         await SeedDepartmentAsync("Head Office", "head");
         var departmentToDeleteId = await SeedDepartmentAsync("Sales Department", "sales");
         using var client = CreateClient();
-        (await client.GetAsync(RootsEndpoint())).EnsureSuccessStatusCode();
+        (await client.GetAsync(TreeEndpoint)).EnsureSuccessStatusCode();
 
         // Act
         var commandResponse = await client.DeleteAsync($"/api/departments/{departmentToDeleteId.Value}");
-        var queryResult = await GetRootsAsync(client, RootsEndpoint());
+        var queryResult = await GetTreeAsync(client);
 
         // Assert
         commandResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        queryResult.Items.Select(department => department.Slug).Should().Equal("head");
+        queryResult.Select(department => department.Slug).Should().Equal("head");
     }
 
     [Fact]
@@ -164,25 +146,24 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
             department.Id == departmentId.Value && department.PositionsCount == 1);
     }
 
-    private static string RootsEndpoint(int page = 1, int size = 20, int prefetch = 3) =>
-        $"/api/departments/roots?page={page}&size={size}&prefetch={prefetch}";
+    private const string TreeEndpoint = "/api/departments/tree";
 
     private static string ChildrenEndpoint(Guid parentId) =>
-        $"/api/departments/{parentId}/children?page=1&size=20";
+        $"/api/departments/{parentId}/children";
 
-    private static async Task<PagedList<RootDepartmentDto>> GetRootsAsync(
-        HttpClient client,
-        string endpoint)
+    private static async Task<IReadOnlyList<DepartmentTreeNodeDto>> GetTreeAsync(HttpClient client)
     {
-        var envelope = await client.GetFromJsonAsync<Envelope<PagedList<RootDepartmentDto>>>(endpoint);
+        var envelope = await client.GetFromJsonAsync<Envelope<IReadOnlyList<DepartmentTreeNodeDto>>>(
+            TreeEndpoint);
         return envelope!.Result!;
     }
 
-    private static async Task<PagedList<DepartmentNodeDto>> GetChildrenAsync(
+    private static async Task<IReadOnlyList<DepartmentTreeNodeDto>> GetChildrenAsync(
         HttpClient client,
         string endpoint)
     {
-        var envelope = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentNodeDto>>>(endpoint);
+        var envelope = await client.GetFromJsonAsync<Envelope<IReadOnlyList<DepartmentTreeNodeDto>>>(
+            endpoint);
         return envelope!.Result!;
     }
 

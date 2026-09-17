@@ -3,9 +3,7 @@ using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Abstractions.Repositories;
 using DirectoryService.Application.Exceptions;
 using DirectoryService.Application.Extensions.Validation;
-using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
-using DirectoryService.Contracts.Locations;
 using DirectoryService.Domain.Shared;
 using FluentValidation;
 using Microsoft.Extensions.Caching.Hybrid;
@@ -14,7 +12,7 @@ using Microsoft.Extensions.Logging;
 namespace DirectoryService.Application.Features.Departments.GetChildren;
 
 public sealed class GetDepartmentChildrenHandler
-    : IQueryHandler<GetDepartmentChildrenQuery, PagedList<DepartmentNodeDto>>
+    : IQueryHandler<GetDepartmentChildrenQuery, IReadOnlyList<DepartmentTreeNodeDto>>
 {
     private readonly IDepartmentQueryRepository _departmentQueryRepository;
     private readonly IValidator<GetDepartmentChildrenQuery> _validator;
@@ -32,7 +30,7 @@ public sealed class GetDepartmentChildrenHandler
         _hybridCache = hybridCache;
     }
 
-    public async Task<Result<PagedList<DepartmentNodeDto>, Error>> HandleAsync(
+    public async Task<Result<IReadOnlyList<DepartmentTreeNodeDto>, Error>> HandleAsync(
         GetDepartmentChildrenQuery query,
         CancellationToken cancellationToken)
     {
@@ -46,15 +44,14 @@ public sealed class GetDepartmentChildrenHandler
             return validationResult.ToError();
         }
 
-        string cacheKey =
-            $"children_departments:page={query.Page}:size={query.Size}:parentId={query.ParentId}";
+        var cacheKey = $"department_tree:children:{query.DepartmentId}";
 
-        PagedList<DepartmentNodeDto> childrenDepartmentsPagedList;
+        IReadOnlyList<DepartmentTreeNodeDto> children;
         var loadedFromDatabase = false;
 
         try
         {
-            childrenDepartmentsPagedList = await _hybridCache.GetOrCreateAsync(
+            children = await _hybridCache.GetOrCreateAsync(
                 cacheKey,
                 factory: async factoryCancellationToken =>
                 {
@@ -64,7 +61,9 @@ public sealed class GetDepartmentChildrenHandler
                         cacheKey);
 
                     var childrenResult =
-                        await _departmentQueryRepository.GetChildrenAsync(query, factoryCancellationToken);
+                        await _departmentQueryRepository.GetChildrenAsync(
+                            query.DepartmentId,
+                            factoryCancellationToken);
                     if (childrenResult.IsFailure)
                         throw new QueryCacheException(childrenResult.Error);
 
@@ -91,6 +90,6 @@ public sealed class GetDepartmentChildrenHandler
                 cacheKey);
         }
 
-        return childrenDepartmentsPagedList;
+        return Result.Success<IReadOnlyList<DepartmentTreeNodeDto>, Error>(children);
     }
 }

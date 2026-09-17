@@ -3,12 +3,14 @@ using DirectoryService.Application.Features.Departments.AddLocation;
 using DirectoryService.Application.Features.Departments.AddPosition;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.Get;
+using DirectoryService.Application.Features.Departments.GetAncestors;
 using DirectoryService.Application.Features.Departments.GetById;
 using DirectoryService.Application.Features.Departments.GetChildren;
-using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
+using DirectoryService.Application.Features.Departments.GetTree;
 using DirectoryService.Application.Features.Departments.RemoveLocation;
 using DirectoryService.Application.Features.Departments.RemovePosition;
+using DirectoryService.Application.Features.Departments.SearchTree;
 using DirectoryService.Application.Features.Departments.SoftDelete;
 using DirectoryService.Application.Features.Departments.Update;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
@@ -201,53 +203,81 @@ public sealed class DepartmentsController : ControllerBase
         return await handler.HandleAsync(query, cancellationToken);
     }
 
-    [HttpGet("roots")]
-    [ProducesResponseType<Envelope<PagedList<RootDepartmentDto>>>(StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [HttpGet("tree")]
+    [ProducesResponseType<Envelope<IReadOnlyList<DepartmentTreeNodeDto>>>(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
-    public async Task<EndpointResult<PagedList<RootDepartmentDto>>> GetRootsAsync(
-        [FromQuery] GetRootDepartmentsRequest request,
-        [FromServices] IQueryHandler<GetRootDepartmentsQuery, PagedList<RootDepartmentDto>> handler,
+    public async Task<EndpointResult<IReadOnlyList<DepartmentTreeNodeDto>>> GetTreeAsync(
+        [FromServices]
+        IQueryHandler<GetDepartmentTreeQuery, IReadOnlyList<DepartmentTreeNodeDto>> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Received get root departments request. Page {Page}. Size {Size}. Prefetch {Prefetch}. TraceId {TraceId}",
-            request.Page,
-            request.Size,
-            request.Prefetch,
+            "Received get department tree request. TraceId {TraceId}",
             HttpContext.TraceIdentifier);
 
-        var query = new GetRootDepartmentsQuery(
-            request.Page,
-            request.Size,
-            request.Prefetch);
-
-        return await handler.HandleAsync(query, cancellationToken);
+        return await handler.HandleAsync(new GetDepartmentTreeQuery(), cancellationToken);
     }
 
-    [HttpGet("{parentId:guid}/children")]
-    [ProducesResponseType<Envelope<PagedList<DepartmentNodeDto>>>(StatusCodes.Status200OK)]
+    [HttpGet("{departmentId:guid}/children")]
+    [ProducesResponseType<Envelope<IReadOnlyList<DepartmentTreeNodeDto>>>(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
-    public async Task<EndpointResult<PagedList<DepartmentNodeDto>>> GetChildrenAsync(
-        Guid parentId,
-        [FromQuery] GetDepartmentChildrenRequest request,
-        [FromServices] IQueryHandler<GetDepartmentChildrenQuery, PagedList<DepartmentNodeDto>> handler,
+    public async Task<EndpointResult<IReadOnlyList<DepartmentTreeNodeDto>>> GetChildrenAsync(
+        Guid departmentId,
+        [FromServices]
+        IQueryHandler<GetDepartmentChildrenQuery, IReadOnlyList<DepartmentTreeNodeDto>> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Received get department children request. ParentId {ParentId}. Page {Page}. Size {Size}. TraceId {TraceId}",
-            parentId,
-            request.Page,
-            request.Size,
+            "Received get department children request. DepartmentId {DepartmentId}. TraceId {TraceId}",
+            departmentId,
             HttpContext.TraceIdentifier);
 
-        var query = new GetDepartmentChildrenQuery(
-            parentId,
-            request.Page,
-            request.Size);
+        return await handler.HandleAsync(
+            new GetDepartmentChildrenQuery(departmentId),
+            cancellationToken);
+    }
 
-        return await handler.HandleAsync(query, cancellationToken);
+    [HttpGet("{departmentId:guid}/ancestors")]
+    [ProducesResponseType<Envelope<IReadOnlyList<DepartmentTreeNodeDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<IReadOnlyList<DepartmentTreeNodeDto>>> GetAncestorsAsync(
+        Guid departmentId,
+        [FromServices]
+        IQueryHandler<GetDepartmentAncestorsQuery, IReadOnlyList<DepartmentTreeNodeDto>> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received get department ancestors request. DepartmentId {DepartmentId}. TraceId {TraceId}",
+            departmentId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.HandleAsync(
+            new GetDepartmentAncestorsQuery(departmentId),
+            cancellationToken);
+    }
+
+    [HttpGet("tree/search")]
+    [ProducesResponseType<Envelope<IReadOnlyList<DepartmentTreeSearchResultDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<IReadOnlyList<DepartmentTreeSearchResultDto>>> SearchTreeAsync(
+        [FromQuery(Name = "q")] string search,
+        [FromServices]
+        IQueryHandler<SearchDepartmentTreeQuery, IReadOnlyList<DepartmentTreeSearchResultDto>> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received department tree search request. Search {Search}. TraceId {TraceId}",
+            search,
+            HttpContext.TraceIdentifier);
+
+        return await handler.HandleAsync(
+            new SearchDepartmentTreeQuery(search),
+            cancellationToken);
     }
 
     [HttpGet("top-positions")]
