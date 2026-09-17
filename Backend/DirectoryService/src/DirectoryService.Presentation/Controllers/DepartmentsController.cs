@@ -346,15 +346,16 @@ public sealed class DepartmentsController : ControllerBase
     }
 
     [HttpPut("{departmentId:guid}/parent")]
-    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType<Envelope<DepartmentMoveResultDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
-    public async Task<EndpointResult> UpdateParentAsync(
+    public async Task<EndpointResult<DepartmentMoveResultDto>> UpdateParentAsync(
         Guid departmentId,
         [FromBody] UpdateDepartmentParentRequest request,
-        [FromServices] ICommandHandler<UpdateDepartmentParentCommand> handler,
+        [FromServices]
+        ICommandHandler<UpdateDepartmentParentCommand, DepartmentMoveResultDto> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(

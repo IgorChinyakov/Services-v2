@@ -43,16 +43,22 @@ public static class DepartmentErrors
             "department.path.duplicate",
             "Department with the same path already exists.");
 
-    public static Error ParentIsSelf(string? invalidField = null) =>
-        Error.Conflict(
-            "department.parent.self",
+    public static Error MoveParentIsSelf(string? invalidField = null) =>
+        Error.Validation(
+            "department.move.parent_is_self",
             "Department cannot be its own parent.",
             invalidField);
 
-    public static Error ParentIsDescendant(string? invalidField = null) =>
+    public static Error MoveCycle(string? invalidField = null) =>
         Error.Conflict(
-            "department.parent.descendant",
+            "department.move.cycle",
             "Department cannot be moved under its own descendant.",
+            invalidField);
+
+    public static Error MoveParentDeleted(string? invalidField = null) =>
+        Error.Conflict(
+            "department.move.parent_deleted",
+            "Department cannot be moved under a soft-deleted parent.",
             invalidField);
 
     public static Error LocationAlreadyLinked() =>

@@ -54,7 +54,7 @@ public interface IDepartmentRepository
         PositionId positionId,
         CancellationToken cancellationToken);
 
-    Task<UnitResult<Error>> MoveParentAsync(
+    Task<Result<DepartmentMoveResult, Error>> MoveParentAsync(
         DepartmentId departmentId,
         DepartmentId? parentId,
         CancellationToken cancellationToken);

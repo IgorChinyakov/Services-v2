@@ -48,7 +48,9 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ICommandHandler<AddDepartmentPositionCommand>, AddDepartmentPositionHandler>();
         services.AddScoped<ICommandHandler<RemoveDepartmentPositionCommand>, RemoveDepartmentPositionHandler>();
         services.AddScoped<ICommandHandler<UpdateDepartmentLocationsCommand>, UpdateDepartmentLocationsHandler>();
-        services.AddScoped<ICommandHandler<UpdateDepartmentParentCommand>, UpdateDepartmentParentHandler>();
+        services.AddScoped<
+            ICommandHandler<UpdateDepartmentParentCommand, DepartmentMoveResultDto>,
+            UpdateDepartmentParentHandler>();
         services.AddScoped<ICommandHandler<SoftDeleteDepartmentCommand>, SoftDeleteDepartmentHandler>();
         services.AddScoped<ICommandHandler<CreatePositionCommand, Guid>, CreatePositionHandler>();
         services.AddScoped<ICommandHandler<UpdatePositionCommand>, UpdatePositionHandler>();

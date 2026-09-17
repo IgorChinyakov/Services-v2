@@ -79,6 +79,10 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
         return _factory.GetRedisDatabaseSizeAsync();
     }
 
+    protected void ResetDepartmentUpdateCount() => _factory.ResetDepartmentUpdateCount();
+
+    protected int GetDepartmentUpdateCount() => _factory.GetDepartmentUpdateCount();
+
     protected async Task<LocationId> SeedLocationAsync(string? name = null)
     {
         return await ExecuteDbContextAsync(async dbContext =>

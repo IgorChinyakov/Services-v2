@@ -325,14 +325,14 @@ public sealed class DepartmentRepository : IDepartmentRepository
         }
     }
 
-    public async Task<UnitResult<Error>> MoveParentAsync(
+    public async Task<Result<DepartmentMoveResult, Error>> MoveParentAsync(
         DepartmentId departmentId,
         DepartmentId? parentId,
         CancellationToken cancellationToken)
     {
         var transactionScopeResult = await _transactionManager.BeginTransactionAsync(cancellationToken);
         if (transactionScopeResult.IsFailure)
-            return UnitResult.Failure(transactionScopeResult.Error);
+            return transactionScopeResult.Error;
 
         await using var transactionScope = transactionScopeResult.Value;
 
@@ -342,10 +342,13 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 .SqlQuery<DepartmentMoveInfo>($"""
                                                SELECT
                                                    id AS "Id",
+                                                   parent_id AS "ParentId",
                                                    slug AS "Slug",
                                                    path::text AS "Path",
                                                    depth AS "Depth",
-                                                   is_active AS "IsActive"
+                                                   is_active AS "IsActive",
+                                                   updated_at AS "UpdatedAt",
+                                                   deleted_at AS "DeletedAt"
                                                FROM departments
                                                WHERE id = {departmentId.Value} AND is_active = TRUE
                                                FOR UPDATE
@@ -356,7 +359,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
             {
                 var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
                 if (rollbackResult.IsFailure)
-                    return rollbackResult;
+                    return rollbackResult.Error;
 
                 return DepartmentErrors.NotFound(departmentId.Value, nameof(departmentId));
             }
@@ -365,10 +368,13 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 .SqlQuery<DepartmentMoveInfo>($"""
                                                SELECT
                                                    id AS "Id",
+                                                   parent_id AS "ParentId",
                                                    slug AS "Slug",
                                                    path::text AS "Path",
                                                    depth AS "Depth",
-                                                   is_active AS "IsActive"
+                                                   is_active AS "IsActive",
+                                                   updated_at AS "UpdatedAt",
+                                                   deleted_at AS "DeletedAt"
                                                FROM departments
                                                WHERE path <@ {department.Path}::ltree
                                                ORDER BY id
@@ -383,12 +389,15 @@ public sealed class DepartmentRepository : IDepartmentRepository
                     .SqlQuery<DepartmentMoveInfo>($"""
                                                    SELECT
                                                        id AS "Id",
+                                                       parent_id AS "ParentId",
                                                        slug AS "Slug",
                                                        path::text AS "Path",
                                                        depth AS "Depth",
-                                                       is_active AS "IsActive"
+                                                       is_active AS "IsActive",
+                                                       updated_at AS "UpdatedAt",
+                                                       deleted_at AS "DeletedAt"
                                                    FROM departments
-                                                   WHERE id = {parentId.Value} AND is_active = TRUE
+                                                   WHERE id = {parentId.Value}
                                                    FOR UPDATE
                                                    """)
                     .SingleOrDefaultAsync(cancellationToken);
@@ -397,10 +406,35 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 {
                     var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
                     if (rollbackResult.IsFailure)
-                        return rollbackResult;
+                        return rollbackResult.Error;
 
                     return DepartmentErrors.ParentNotFound(parentId.Value, nameof(parentId));
                 }
+
+                if (!parent.IsActive || parent.DeletedAt is not null)
+                {
+                    var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
+                    if (rollbackResult.IsFailure)
+                        return rollbackResult.Error;
+
+                    return DepartmentErrors.MoveParentDeleted(nameof(parentId));
+                }
+            }
+
+            var requestedParentId = parentId?.Value;
+            if (department.ParentId == requestedParentId)
+            {
+                var noOpCommitResult = await transactionScope.CommitAsync(cancellationToken);
+                if (noOpCommitResult.IsFailure)
+                    return noOpCommitResult.Error;
+
+                return new DepartmentMoveResult(
+                    department.Id,
+                    department.ParentId,
+                    department.Path,
+                    department.Depth,
+                    department.UpdatedAt,
+                    false);
             }
 
             bool isParentInsideDepartmentSubtree = false;
@@ -416,9 +450,9 @@ public sealed class DepartmentRepository : IDepartmentRepository
             {
                 var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
                 if (rollbackResult.IsFailure)
-                    return rollbackResult;
+                    return rollbackResult.Error;
 
-                return DepartmentErrors.ParentIsDescendant(nameof(parentId));
+                return DepartmentErrors.MoveCycle(nameof(parentId));
             }
 
             string oldPath = department.Path;
@@ -428,6 +462,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 ? (short)0
                 : checked((short)(parent.Depth + 1));
             int depthDelta = newDepth - department.Depth;
+            var updatedAt = DateTime.UtcNow;
 
             var updatedRows = await _dbContext.Database.ExecuteSqlInterpolatedAsync(
                 $"""
@@ -442,7 +477,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                         WHEN id = {departmentId.Value} THEN {newPath}::ltree
                         ELSE {newPath}::ltree || subpath(path, nlevel({oldPath}::ltree))
                     END,
-                    updated_at = now(),
+                    updated_at = {updatedAt},
                     depth = (depth + {depthDelta})::smallint
                  WHERE path <@ {oldPath}::ltree
                  """, cancellationToken);
@@ -455,9 +490,15 @@ public sealed class DepartmentRepository : IDepartmentRepository
 
             var commitResult = await transactionScope.CommitAsync(cancellationToken);
             if (commitResult.IsFailure)
-                return commitResult;
+                return commitResult.Error;
 
-            return UnitResult.Success<Error>();
+            return new DepartmentMoveResult(
+                department.Id,
+                newParentId,
+                newPath,
+                newDepth,
+                updatedAt,
+                true);
         }
         catch (OperationCanceledException)
         {
@@ -467,7 +508,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
         {
             var rollbackResult = await transactionScope.RollbackAsync(cancellationToken);
             if (rollbackResult.IsFailure)
-                return rollbackResult;
+                return rollbackResult.Error;
 
             _logger.LogError(
                 exception,
@@ -789,10 +830,13 @@ public sealed class DepartmentRepository : IDepartmentRepository
 
     private sealed record DepartmentMoveInfo(
         Guid Id,
+        Guid? ParentId,
         string Slug,
         string Path,
         short Depth,
-        bool IsActive);
+        bool IsActive,
+        DateTime UpdatedAt,
+        DateTime? DeletedAt);
 
     private sealed record DepartmentCleanUpInfo(
         Guid Id,

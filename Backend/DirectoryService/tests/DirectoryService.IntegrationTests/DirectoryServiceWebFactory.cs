@@ -35,6 +35,8 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted(["redis-cli", "ping"]))
         .Build();
 
+    private readonly DepartmentUpdateCommandInterceptor _departmentUpdateCommandInterceptor = new();
+
     private Respawner? _respawner;
     private DbConnection? _dbConnection;
     private NpgsqlDataSource? _dataSource;
@@ -86,6 +88,11 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         return long.Parse(result.Stdout.Trim(), CultureInfo.InvariantCulture);
     }
 
+    public void ResetDepartmentUpdateCount() => _departmentUpdateCommandInterceptor.Reset();
+
+    public int GetDepartmentUpdateCount() =>
+        _departmentUpdateCommandInterceptor.DepartmentUpdateCount;
+
     public new async Task DisposeAsync()
     {
         if (_dbConnection is not null)
@@ -121,7 +128,9 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
             {
                 var dataSource = serviceProvider.GetRequiredService<NpgsqlDataSource>();
 
-                options.UseNpgsql(dataSource);
+                options
+                    .UseNpgsql(dataSource)
+                    .AddInterceptors(_departmentUpdateCommandInterceptor);
             });
 
             services.AddStackExchangeRedisCache(options =>
