@@ -1,4 +1,5 @@
 using DirectoryService.Application.Features.Departments.Create;
+using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
 using DirectoryService.Domain.Shared;
 using FluentAssertions;
@@ -43,6 +44,32 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
             department.Path.Should().Be("sales");
             department.Depth.Should().Be(0);
             department.DepartmentLocations.Should().ContainSingle(link => link.LocationId == locationId);
+        });
+    }
+
+    [Fact]
+    public async Task CreateDepartment_WithoutLocations_ShouldCreateDepartmentWithoutLinks()
+    {
+        // Arrange
+        var command = new CreateDepartmentCommand(
+            "Remote Department",
+            "remote",
+            null,
+            []);
+
+        // Act
+        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        await ExecuteDbContextAsync(async dbContext =>
+        {
+            var department = await dbContext.Departments
+                .Include(item => item.DepartmentLocations)
+                .FirstAsync(item => item.Id == DepartmentId.Create(result.Value));
+
+            department.Path.Should().Be(command.Slug);
+            department.DepartmentLocations.Should().BeEmpty();
         });
     }
 
@@ -132,12 +159,13 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
     public async Task CreateDepartment_WithMissingLocation_ShouldReturnNotFoundError()
     {
         // Arrange
+        var existingLocationId = await SeedLocationAsync();
         var missingLocationId = Guid.NewGuid();
         var command = new CreateDepartmentCommand(
             "Sales Department",
             "sales",
             null,
-            [missingLocationId]);
+            [existingLocationId.Value, missingLocationId]);
 
         // Act
         var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
@@ -148,6 +176,14 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
         result.Error.Messages.Should().ContainSingle(message =>
             message.Code == "location.not_found" &&
             message.InvalidField == nameof(CreateDepartmentCommand.LocationIds));
+        await ExecuteDbContextAsync(async dbContext =>
+        {
+            var departmentsCount = await dbContext.Departments.CountAsync();
+            var linksCount = await dbContext.Set<DepartmentLocation>().CountAsync();
+
+            departmentsCount.Should().Be(0);
+            linksCount.Should().Be(0);
+        });
     }
 
     [Fact]

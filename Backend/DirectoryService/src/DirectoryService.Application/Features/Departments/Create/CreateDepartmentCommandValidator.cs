@@ -21,9 +21,9 @@ public sealed class CreateDepartmentCommandValidator : AbstractValidator<CreateD
         RuleFor(x => x.LocationIds)
             .Custom((locationIds, context) =>
             {
-                if (locationIds is null || locationIds.Count == 0)
+                if (locationIds is null)
                 {
-                    context.AddFailure(context.PropertyPath, "LocationIds must not be empty");
+                    context.AddFailure(context.PropertyPath, "LocationIds are required");
                     return;
                 }
 
