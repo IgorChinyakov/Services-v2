@@ -144,6 +144,17 @@ Directory Service - единый справочник организационн
 - exception middleware с логированием исключений и возвратом `Envelope`;
 - общий контракт handlers: `ICommandHandler` и `IQueryHandler`.
 
+### Запуск инфраструктуры
+
+Docker Compose читает локальные настройки из `.env`. При первом запуске создай его из безопасного шаблона и замени пароль PostgreSQL:
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+```
+
+Файл `.env` не попадает в Git. В `.env.example` перечислены обязательные переменные и development-значения портов, образов и параметров фоновой очистки.
+
 ## API-ответы
 
 Все контроллеры возвращают результат через `EndpointResult`, который преобразует `Result`/`Error` в `Envelope`.
