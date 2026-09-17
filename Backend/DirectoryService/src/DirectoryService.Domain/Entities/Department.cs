@@ -71,6 +71,14 @@ public class Department : Entity<DepartmentId>
         _departmentLocations.Add(new DepartmentLocation(Id, locationId));
     }
 
+    public void UpdateName(Name name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+
+        Name = name;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
     public void SoftDelete()
     {
         var deletedAtUtc = DateTime.UtcNow;

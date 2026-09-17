@@ -11,14 +11,10 @@ namespace DirectoryService.Presentation.Controllers;
 [Route("api/positions")]
 public sealed class PositionsController : ControllerBase
 {
-    private readonly ICommandHandler<CreatePositionCommand, Guid> _createPositionHandler;
     private readonly ILogger<PositionsController> _logger;
 
-    public PositionsController(
-        ICommandHandler<CreatePositionCommand, Guid> createPositionHandler,
-        ILogger<PositionsController> logger)
+    public PositionsController(ILogger<PositionsController> logger)
     {
-        _createPositionHandler = createPositionHandler;
         _logger = logger;
     }
 
@@ -30,6 +26,7 @@ public sealed class PositionsController : ControllerBase
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<Guid>> CreateAsync(
         [FromBody] CreatePositionRequest request,
+        [FromServices] ICommandHandler<CreatePositionCommand, Guid> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -42,7 +39,7 @@ public sealed class PositionsController : ControllerBase
             request.Description,
             request.DepartmentIds);
 
-        var result = await _createPositionHandler.Handle(command, cancellationToken);
+        var result = await handler.Handle(command, cancellationToken);
 
         return result;
     }

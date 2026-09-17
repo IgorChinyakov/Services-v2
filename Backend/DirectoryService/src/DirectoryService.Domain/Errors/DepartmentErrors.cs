@@ -60,6 +60,11 @@ public static class DepartmentErrors
             "department.location.duplicate",
             "Location is already linked to the department.");
 
+    public static Error LocationNotLinked() =>
+        Error.NotFound(
+            "department.location.not_found",
+            "Location is not linked to the department.");
+
     public static Error PositionAlreadyLinked() =>
         Error.Conflict(
             "department.position.duplicate",

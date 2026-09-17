@@ -176,6 +176,80 @@ public sealed class DepartmentRepository : IDepartmentRepository
         }
     }
 
+    public async Task<Result<bool, Error>> LocationLinkExistsAsync(
+        DepartmentId departmentId,
+        LocationId locationId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _dbContext.Set<DepartmentLocation>()
+                .AsNoTracking()
+                .AnyAsync(
+                    link => link.DepartmentId == departmentId && link.LocationId == locationId,
+                    cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to check department location link. DepartmentId {DepartmentId}. LocationId {LocationId}",
+                departmentId.Value,
+                locationId.Value);
+
+            return DatabaseErrors.OperationFailed("check department location link");
+        }
+    }
+
+    public async Task<Result<DepartmentLocation, Error>> AddLocationLinkAsync(
+        DepartmentId departmentId,
+        LocationId locationId,
+        CancellationToken cancellationToken)
+    {
+        var link = new DepartmentLocation(departmentId, locationId);
+        await _dbContext.Set<DepartmentLocation>().AddAsync(link, cancellationToken);
+
+        return link;
+    }
+
+    public async Task<Result<bool, Error>> RemoveLocationLinkAsync(
+        DepartmentId departmentId,
+        LocationId locationId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var link = await _dbContext.Set<DepartmentLocation>()
+                .FirstOrDefaultAsync(
+                    item => item.DepartmentId == departmentId && item.LocationId == locationId,
+                    cancellationToken);
+
+            if (link is null)
+                return false;
+
+            _dbContext.Set<DepartmentLocation>().Remove(link);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to remove department location link. DepartmentId {DepartmentId}. LocationId {LocationId}",
+                departmentId.Value,
+                locationId.Value);
+
+            return DatabaseErrors.OperationFailed("remove department location link");
+        }
+    }
+
     public async Task<UnitResult<Error>> MoveParentAsync(
         DepartmentId departmentId,
         DepartmentId? parentId,

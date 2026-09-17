@@ -1,11 +1,14 @@
 using DirectoryService.Application.Abstractions.Handlers;
+using DirectoryService.Application.Features.Departments.AddLocation;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.Get;
 using DirectoryService.Application.Features.Departments.GetById;
 using DirectoryService.Application.Features.Departments.GetChildren;
 using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
+using DirectoryService.Application.Features.Departments.RemoveLocation;
 using DirectoryService.Application.Features.Departments.SoftDelete;
+using DirectoryService.Application.Features.Departments.Update;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
 using DirectoryService.Contracts.Common;
@@ -21,53 +24,10 @@ namespace DirectoryService.Presentation.Controllers;
 [Route("api/departments")]
 public sealed class DepartmentsController : ControllerBase
 {
-    private readonly ICommandHandler<CreateDepartmentCommand, Guid> _createDepartmentHandler;
-    private readonly ICommandHandler<UpdateDepartmentLocationsCommand> _updateDepartmentLocationsHandler;
-    private readonly ICommandHandler<UpdateDepartmentParentCommand> _updateDepartmentParentHandler;
-    private readonly ICommandHandler<SoftDeleteDepartmentCommand> _softDeleteDepartmentHandler;
-    private readonly IQueryHandler<GetDepartmentsQuery, PagedList<DepartmentListItemDto>> _getDepartmentsHandler;
-    private readonly IQueryHandler<GetDepartmentByIdQuery, DepartmentDetailsDto> _getDepartmentByIdHandler;
-    private readonly IQueryHandler<
-        GetRootDepartmentsQuery,
-        PagedList<RootDepartmentDto>> _getRootDepartmentsHandler;
-
-    private readonly IQueryHandler<
-        GetDepartmentChildrenQuery,
-        PagedList<DepartmentNodeDto>> _getDepartmentChildrenHandler;
-
-    private readonly IQueryHandler<
-        GetTopDepartmentsByPositionsQuery,
-        IReadOnlyList<TopDepartmentByPositionsDto>> _getTopDepartmentsByPositionsHandler;
-
     private readonly ILogger<DepartmentsController> _logger;
 
-    public DepartmentsController(
-        ICommandHandler<CreateDepartmentCommand, Guid> createDepartmentHandler,
-        ICommandHandler<UpdateDepartmentLocationsCommand> updateDepartmentLocationsHandler,
-        ICommandHandler<UpdateDepartmentParentCommand> updateDepartmentParentHandler,
-        ICommandHandler<SoftDeleteDepartmentCommand> softDeleteDepartmentHandler,
-        IQueryHandler<GetDepartmentsQuery, PagedList<DepartmentListItemDto>> getDepartmentsHandler,
-        IQueryHandler<GetDepartmentByIdQuery, DepartmentDetailsDto> getDepartmentByIdHandler,
-        IQueryHandler<
-            GetRootDepartmentsQuery,
-            PagedList<RootDepartmentDto>> getRootDepartmentsHandler,
-        IQueryHandler<
-            GetDepartmentChildrenQuery,
-            PagedList<DepartmentNodeDto>> getDepartmentChildrenHandler,
-        IQueryHandler<
-            GetTopDepartmentsByPositionsQuery,
-            IReadOnlyList<TopDepartmentByPositionsDto>> getTopDepartmentsByPositionsHandler,
-        ILogger<DepartmentsController> logger)
+    public DepartmentsController(ILogger<DepartmentsController> logger)
     {
-        _createDepartmentHandler = createDepartmentHandler;
-        _updateDepartmentLocationsHandler = updateDepartmentLocationsHandler;
-        _updateDepartmentParentHandler = updateDepartmentParentHandler;
-        _softDeleteDepartmentHandler = softDeleteDepartmentHandler;
-        _getDepartmentsHandler = getDepartmentsHandler;
-        _getDepartmentByIdHandler = getDepartmentByIdHandler;
-        _getRootDepartmentsHandler = getRootDepartmentsHandler;
-        _getDepartmentChildrenHandler = getDepartmentChildrenHandler;
-        _getTopDepartmentsByPositionsHandler = getTopDepartmentsByPositionsHandler;
         _logger = logger;
     }
 
@@ -79,6 +39,7 @@ public sealed class DepartmentsController : ControllerBase
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<Guid>> CreateAsync(
         [FromBody] CreateDepartmentRequest request,
+        [FromServices] ICommandHandler<CreateDepartmentCommand, Guid> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -93,9 +54,75 @@ public sealed class DepartmentsController : ControllerBase
             request.ParentId,
             request.LocationIds);
 
-        var result = await _createDepartmentHandler.Handle(command, cancellationToken);
+        var result = await handler.Handle(command, cancellationToken);
 
         return result;
+    }
+
+    [HttpPatch("{departmentId:guid}")]
+    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> UpdateAsync(
+        Guid departmentId,
+        [FromBody] UpdateDepartmentRequest request,
+        [FromServices] ICommandHandler<UpdateDepartmentCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received update department request. DepartmentId {DepartmentId}. TraceId {TraceId}",
+            departmentId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.Handle(
+            new UpdateDepartmentCommand(departmentId, request.Name),
+            cancellationToken);
+    }
+
+    [HttpPost("{departmentId:guid}/locations/{locationId:guid}")]
+    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> AddLocationAsync(
+        Guid departmentId,
+        Guid locationId,
+        [FromServices] ICommandHandler<AddDepartmentLocationCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received add department location request. DepartmentId {DepartmentId}. LocationId {LocationId}. TraceId {TraceId}",
+            departmentId,
+            locationId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.Handle(
+            new AddDepartmentLocationCommand(departmentId, locationId),
+            cancellationToken);
+    }
+
+    [HttpDelete("{departmentId:guid}/locations/{locationId:guid}")]
+    [ProducesResponseType<EndpointResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> RemoveLocationAsync(
+        Guid departmentId,
+        Guid locationId,
+        [FromServices] ICommandHandler<RemoveDepartmentLocationCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received remove department location request. DepartmentId {DepartmentId}. LocationId {LocationId}. TraceId {TraceId}",
+            departmentId,
+            locationId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.Handle(
+            new RemoveDepartmentLocationCommand(departmentId, locationId),
+            cancellationToken);
     }
 
     [HttpGet]
@@ -104,6 +131,7 @@ public sealed class DepartmentsController : ControllerBase
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<PagedList<DepartmentListItemDto>>> GetAsync(
         [FromQuery] GetDepartmentsRequest request,
+        [FromServices] IQueryHandler<GetDepartmentsQuery, PagedList<DepartmentListItemDto>> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -123,7 +151,7 @@ public sealed class DepartmentsController : ControllerBase
             request.Page,
             request.PageSize);
 
-        return await _getDepartmentsHandler.HandleAsync(query, cancellationToken);
+        return await handler.HandleAsync(query, cancellationToken);
     }
 
     [HttpGet("roots")]
@@ -132,6 +160,7 @@ public sealed class DepartmentsController : ControllerBase
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<PagedList<RootDepartmentDto>>> GetRootsAsync(
         [FromQuery] GetRootDepartmentsRequest request,
+        [FromServices] IQueryHandler<GetRootDepartmentsQuery, PagedList<RootDepartmentDto>> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -146,7 +175,7 @@ public sealed class DepartmentsController : ControllerBase
             request.Size,
             request.Prefetch);
 
-        return await _getRootDepartmentsHandler.HandleAsync(query, cancellationToken);
+        return await handler.HandleAsync(query, cancellationToken);
     }
 
     [HttpGet("{parentId:guid}/children")]
@@ -156,6 +185,7 @@ public sealed class DepartmentsController : ControllerBase
     public async Task<EndpointResult<PagedList<DepartmentNodeDto>>> GetChildrenAsync(
         Guid parentId,
         [FromQuery] GetDepartmentChildrenRequest request,
+        [FromServices] IQueryHandler<GetDepartmentChildrenQuery, PagedList<DepartmentNodeDto>> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -170,7 +200,7 @@ public sealed class DepartmentsController : ControllerBase
             request.Page,
             request.Size);
 
-        return await _getDepartmentChildrenHandler.HandleAsync(query, cancellationToken);
+        return await handler.HandleAsync(query, cancellationToken);
     }
 
     [HttpGet("top-positions")]
@@ -178,6 +208,8 @@ public sealed class DepartmentsController : ControllerBase
         StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<IReadOnlyList<TopDepartmentByPositionsDto>>> GetTopByPositionsAsync(
+        [FromServices]
+        IQueryHandler<GetTopDepartmentsByPositionsQuery, IReadOnlyList<TopDepartmentByPositionsDto>> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -186,7 +218,7 @@ public sealed class DepartmentsController : ControllerBase
 
         var query = new GetTopDepartmentsByPositionsQuery();
 
-        return await _getTopDepartmentsByPositionsHandler.HandleAsync(query, cancellationToken);
+        return await handler.HandleAsync(query, cancellationToken);
     }
 
     [HttpGet("{id:guid}")]
@@ -196,6 +228,7 @@ public sealed class DepartmentsController : ControllerBase
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult<DepartmentDetailsDto>> GetByIdAsync(
         Guid id,
+        [FromServices] IQueryHandler<GetDepartmentByIdQuery, DepartmentDetailsDto> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -203,7 +236,7 @@ public sealed class DepartmentsController : ControllerBase
             id,
             HttpContext.TraceIdentifier);
 
-        return await _getDepartmentByIdHandler.HandleAsync(
+        return await handler.HandleAsync(
             new GetDepartmentByIdQuery(id),
             cancellationToken);
     }
@@ -217,6 +250,7 @@ public sealed class DepartmentsController : ControllerBase
     public async Task<EndpointResult> UpdateLocationsAsync(
         Guid departmentId,
         [FromBody] UpdateDepartmentLocationsRequest request,
+        [FromServices] ICommandHandler<UpdateDepartmentLocationsCommand> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -229,7 +263,7 @@ public sealed class DepartmentsController : ControllerBase
             departmentId,
             request.LocationIds);
 
-        var result = await _updateDepartmentLocationsHandler.Handle(command, cancellationToken);
+        var result = await handler.Handle(command, cancellationToken);
 
         return result;
     }
@@ -243,6 +277,7 @@ public sealed class DepartmentsController : ControllerBase
     public async Task<EndpointResult> UpdateParentAsync(
         Guid departmentId,
         [FromBody] UpdateDepartmentParentRequest request,
+        [FromServices] ICommandHandler<UpdateDepartmentParentCommand> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -255,7 +290,7 @@ public sealed class DepartmentsController : ControllerBase
             departmentId,
             request.ParentId);
 
-        var result = await _updateDepartmentParentHandler.Handle(command, cancellationToken);
+        var result = await handler.Handle(command, cancellationToken);
 
         return result;
     }
@@ -267,6 +302,7 @@ public sealed class DepartmentsController : ControllerBase
     [ProducesResponseType(typeof(EndpointResult), StatusCodes.Status500InternalServerError)]
     public async Task<EndpointResult> SoftDeleteAsync(
         Guid departmentId,
+        [FromServices] ICommandHandler<SoftDeleteDepartmentCommand> handler,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
@@ -276,6 +312,6 @@ public sealed class DepartmentsController : ControllerBase
 
         var command = new SoftDeleteDepartmentCommand(departmentId);
 
-        return await _softDeleteDepartmentHandler.Handle(command, cancellationToken);
+        return await handler.Handle(command, cancellationToken);
     }
 }

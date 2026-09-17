@@ -1,4 +1,5 @@
 using DirectoryService.Application.Abstractions.Handlers;
+using DirectoryService.Application.Features.Departments.AddLocation;
 using DirectoryService.Application.Features.Departments.CleanupInactive;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.Get;
@@ -6,12 +7,15 @@ using DirectoryService.Application.Features.Departments.GetById;
 using DirectoryService.Application.Features.Departments.GetChildren;
 using DirectoryService.Application.Features.Departments.GetRoots;
 using DirectoryService.Application.Features.Departments.GetTopByPositions;
+using DirectoryService.Application.Features.Departments.RemoveLocation;
 using DirectoryService.Application.Features.Departments.SoftDelete;
+using DirectoryService.Application.Features.Departments.Update;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
 using DirectoryService.Application.Features.Locations.Create;
 using DirectoryService.Application.Features.Locations.Get;
 using DirectoryService.Application.Features.Locations.GetById;
+using DirectoryService.Application.Features.Locations.Update;
 using DirectoryService.Application.Features.Positions.Create;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
@@ -26,7 +30,11 @@ public static class DependencyInjectionExtensions
     public static IServiceCollection AddApplication(this IServiceCollection services)
     {
         services.AddScoped<ICommandHandler<CreateLocationCommand, Guid>, CreateLocationHandler>();
+        services.AddScoped<ICommandHandler<UpdateLocationCommand>, UpdateLocationHandler>();
         services.AddScoped<ICommandHandler<CreateDepartmentCommand, Guid>, CreateDepartmentHandler>();
+        services.AddScoped<ICommandHandler<UpdateDepartmentCommand>, UpdateDepartmentHandler>();
+        services.AddScoped<ICommandHandler<AddDepartmentLocationCommand>, AddDepartmentLocationHandler>();
+        services.AddScoped<ICommandHandler<RemoveDepartmentLocationCommand>, RemoveDepartmentLocationHandler>();
         services.AddScoped<ICommandHandler<UpdateDepartmentLocationsCommand>, UpdateDepartmentLocationsHandler>();
         services.AddScoped<ICommandHandler<UpdateDepartmentParentCommand>, UpdateDepartmentParentHandler>();
         services.AddScoped<ICommandHandler<SoftDeleteDepartmentCommand>, SoftDeleteDepartmentHandler>();

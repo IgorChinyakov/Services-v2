@@ -24,6 +24,21 @@ public interface IDepartmentRepository
         IReadOnlyCollection<LocationId> locationIds,
         CancellationToken cancellationToken);
 
+    Task<Result<bool, Error>> LocationLinkExistsAsync(
+        DepartmentId departmentId,
+        LocationId locationId,
+        CancellationToken cancellationToken);
+
+    Task<Result<DepartmentLocation, Error>> AddLocationLinkAsync(
+        DepartmentId departmentId,
+        LocationId locationId,
+        CancellationToken cancellationToken);
+
+    Task<Result<bool, Error>> RemoveLocationLinkAsync(
+        DepartmentId departmentId,
+        LocationId locationId,
+        CancellationToken cancellationToken);
+
     Task<UnitResult<Error>> MoveParentAsync(
         DepartmentId departmentId,
         DepartmentId? parentId,

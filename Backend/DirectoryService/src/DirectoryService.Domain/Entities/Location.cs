@@ -37,4 +37,14 @@ public class Location : Entity<LocationId>
         CreatedAt = utcNow;
         UpdatedAt = utcNow;
     }
+
+    public void Update(Name name, Address address)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(address);
+
+        Name = name;
+        Address = address;
+        UpdatedAt = DateTime.UtcNow;
+    }
 }
