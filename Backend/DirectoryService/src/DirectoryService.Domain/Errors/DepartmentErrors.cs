@@ -32,10 +32,10 @@ public static class DepartmentErrors
         return Error.NotFound("department.parent.not_found", message, invalidField);
     }
 
-    public static Error IdentifierDuplicate(string? invalidField = null) =>
+    public static Error SlugDuplicate(string? invalidField = null) =>
         Error.Conflict(
-            "department.identifier.duplicate",
-            "Department with the same identifier already exists.",
+            "department.slug.duplicate",
+            "Department with the same slug already exists.",
             invalidField);
 
     public static Error PathDuplicate() =>

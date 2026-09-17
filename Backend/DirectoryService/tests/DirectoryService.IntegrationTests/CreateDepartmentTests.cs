@@ -38,12 +38,59 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
                 .FirstAsync(x => x.Id == DepartmentId.Create(result.Value));
 
             department.Name.Value.Should().Be(command.Name);
-            department.Identifier.Value.Should().Be(command.Identifier);
+            department.Slug.Value.Should().Be(command.Slug);
             department.ParentId.Should().BeNull();
             department.Path.Should().Be("sales");
             department.Depth.Should().Be(0);
             department.DepartmentLocations.Should().ContainSingle(link => link.LocationId == locationId);
         });
+    }
+
+    [Fact]
+    public async Task CreateDepartment_WithUrlFriendlySlug_ShouldPersistSlugAndPath()
+    {
+        // Arrange
+        var locationId = await SeedLocationAsync();
+        var command = new CreateDepartmentCommand(
+            "Business To Business Sales",
+            "b2b-sales",
+            null,
+            [locationId.Value]);
+
+        // Act
+        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue(result.IsFailure ? result.Error.GetMessage() : string.Empty);
+        await ExecuteDbContextAsync(async dbContext =>
+        {
+            var department = await dbContext.Departments
+                .FirstAsync(x => x.Id == DepartmentId.Create(result.Value));
+
+            department.Slug.Value.Should().Be("b2b-sales");
+            department.Path.Should().Be("b2b-sales");
+        });
+    }
+
+    [Fact]
+    public async Task CreateDepartment_WithUppercaseSlug_ShouldReturnValidationError()
+    {
+        // Arrange
+        var locationId = await SeedLocationAsync();
+        var command = new CreateDepartmentCommand(
+            "Sales Department",
+            "Sales",
+            null,
+            [locationId.Value]);
+
+        // Act
+        var result = await ExecuteCommandAsync<CreateDepartmentCommand, Guid>(command);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.Error.Type.Should().Be(ErrorType.Validation, result.Error.GetMessage());
+        result.Error.Messages.Should().Contain(message =>
+            message.InvalidField == nameof(CreateDepartmentCommand.Slug));
     }
 
     [Fact]
@@ -104,7 +151,7 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
     }
 
     [Fact]
-    public async Task CreateDepartment_WithDuplicateIdentifier_ShouldReturnConflictError()
+    public async Task CreateDepartment_WithDuplicateSlug_ShouldReturnConflictError()
     {
         // Arrange
         var firstLocationId = await SeedLocationAsync();
@@ -126,8 +173,8 @@ public class CreateDepartmentTests : DirectoryServiceTestsBase
         result.IsFailure.Should().BeTrue();
         result.Error.Type.Should().Be(ErrorType.Conflict, result.Error.GetMessage());
         result.Error.Messages.Should().ContainSingle(message =>
-            message.Code == "department.identifier.duplicate" &&
-            message.InvalidField == nameof(CreateDepartmentCommand.Identifier));
+            message.Code == "department.slug.duplicate" &&
+            message.InvalidField == nameof(CreateDepartmentCommand.Slug));
     }
 
     [Fact]

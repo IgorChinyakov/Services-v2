@@ -5,5 +5,4 @@ namespace DirectoryService.Application.Features.Locations.Create;
 
 public sealed record CreateLocationCommand(
     string Name,
-    AddressDto Address,
-    string Timezone) : ICommand;
+    AddressDto Address) : ICommand;

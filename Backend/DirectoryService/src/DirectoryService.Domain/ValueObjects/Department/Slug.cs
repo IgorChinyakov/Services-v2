@@ -4,54 +4,51 @@ using DirectoryService.Domain.Shared;
 
 namespace DirectoryService.Domain.ValueObjects.Department;
 
-public partial class Identifier : ValueObject
+public partial class Slug : ValueObject
 {
-    public string Value { get; }
-
     public const int MIN_LENGTH = 3;
     public const int MAX_LENGTH = 150;
 
-    private static readonly Regex _identifierRegex = IdentifierRegex();
+    private static readonly Regex _slugRegex = SlugRegex();
 
-    private Identifier(string value)
+    private Slug(string value)
     {
         Value = value;
     }
 
-    public static Result<Identifier, Error> Create(string value)
+    public string Value { get; }
+
+    public static Result<Slug, Error> Create(string value)
     {
         var validationResult = Validate(value);
         if (validationResult.IsFailure)
             return validationResult.Error;
 
-        return new Identifier(value.Trim());
+        return new Slug(value.Trim());
     }
 
     public static UnitResult<Error> Validate(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
-        {
-            return GeneralErrors.Validation(
-                "Department identifier is empty",
-                "Department identifier");
-        }
+            return GeneralErrors.Validation("Department slug is empty", nameof(Slug));
 
         var trimmed = value.Trim();
         var messages = new List<ErrorMessage>();
+
         if (trimmed.Length < MIN_LENGTH || trimmed.Length > MAX_LENGTH)
         {
-            messages.Add(new(
+            messages.Add(new ErrorMessage(
                 "field.is.invalid",
-                "Department identifier has invalid length",
-                nameof(Identifier)));
+                $"Department slug must be between {MIN_LENGTH} and {MAX_LENGTH} characters",
+                nameof(Slug)));
         }
 
-        if (!_identifierRegex.IsMatch(trimmed))
+        if (!_slugRegex.IsMatch(trimmed))
         {
-            messages.Add(new(
+            messages.Add(new ErrorMessage(
                 "field.is.invalid",
-                "Department identifier must contain latin letters only",
-                nameof(Identifier)));
+                "Department slug must contain lowercase Latin letters, digits, and single hyphens only",
+                nameof(Slug)));
         }
 
         return messages.Count > 0
@@ -64,6 +61,6 @@ public partial class Identifier : ValueObject
         yield return Value;
     }
 
-    [GeneratedRegex("^[A-Za-z]+$", RegexOptions.Compiled)]
-    private static partial Regex IdentifierRegex();
+    [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$", RegexOptions.Compiled)]
+    private static partial Regex SlugRegex();
 }

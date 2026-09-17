@@ -144,7 +144,7 @@ public sealed class GetDepartmentsHandler
             .Select(department => new DepartmentListItemDto(
                 department.Id.Value,
                 department.Name.Value,
-                department.Identifier.Value,
+                department.Slug.Value,
                 department.Path,
                 department.CreatedAt))
             .ToListAsync(cancellationToken);

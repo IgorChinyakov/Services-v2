@@ -13,9 +13,9 @@ public sealed class CreateDepartmentCommandValidator : AbstractValidator<CreateD
                 value => Name.Validate(value ?? string.Empty),
                 (context, _) => context.PropertyPath);
 
-        RuleFor(x => x.Identifier)
+        RuleFor(x => x.Slug)
             .MustBeValueObject(
-                value => Identifier.Validate(value ?? string.Empty),
+                value => Slug.Validate(value ?? string.Empty),
                 (context, _) => context.PropertyPath);
 
         RuleFor(x => x.LocationIds)

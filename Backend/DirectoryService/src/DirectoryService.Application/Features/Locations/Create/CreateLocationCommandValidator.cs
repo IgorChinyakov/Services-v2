@@ -14,11 +14,6 @@ public sealed class CreateLocationCommandValidator : AbstractValidator<CreateLoc
                 value => Name.Validate(value ?? string.Empty),
                 (context, _) => context.PropertyPath);
 
-        RuleFor(x => x.Timezone)
-            .MustBeValueObject(
-                value => LocationTimeZone.Validate(value ?? string.Empty),
-                (context, _) => context.PropertyPath);
-
         RuleFor(x => x.Address)
             .MustBeValueObject(
                 address => address is null

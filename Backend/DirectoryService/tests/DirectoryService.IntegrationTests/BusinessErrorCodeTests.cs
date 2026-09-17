@@ -29,7 +29,6 @@ public sealed class BusinessErrorCodeTests : DirectoryServiceTestsBase
         {
             Name = "Main Office",
             Address = CreateAddress(2),
-            Timezone = "Europe/Moscow",
         };
 
         // Act
@@ -53,7 +52,6 @@ public sealed class BusinessErrorCodeTests : DirectoryServiceTestsBase
         {
             Name = "Branch Office",
             Address = CreateAddress(1),
-            Timezone = "Europe/Moscow",
         };
 
         // Act

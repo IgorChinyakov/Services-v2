@@ -174,7 +174,7 @@ public class SoftDeleteDepartmentTests : DirectoryServiceTestsBase
                  INSERT INTO departments (
                      id,
                      name,
-                     identifier,
+                     slug,
                      parent_id,
                      path,
                      depth,

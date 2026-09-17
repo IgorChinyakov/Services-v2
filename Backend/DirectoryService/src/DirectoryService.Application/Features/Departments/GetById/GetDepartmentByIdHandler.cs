@@ -44,7 +44,7 @@ public sealed class GetDepartmentByIdHandler
                 item.Id.Value,
                 item.ParentId == null ? null : item.ParentId.Value,
                 item.Name.Value,
-                item.Identifier.Value,
+                item.Slug.Value,
                 item.Path,
                 item.Depth,
                 item.IsActive,

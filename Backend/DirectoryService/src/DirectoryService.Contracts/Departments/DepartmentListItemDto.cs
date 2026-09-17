@@ -3,6 +3,6 @@ namespace DirectoryService.Contracts.Departments;
 public sealed record DepartmentListItemDto(
     Guid Id,
     string Name,
-    string Identifier,
+    string Slug,
     string Path,
     DateTime CreatedAt);

@@ -7,8 +7,8 @@ namespace DirectoryService.Application.Abstractions.Repositories;
 
 public interface IDepartmentRepository
 {
-    Task<Result<bool, Error>> IdentifierExistsAsync(
-        string identifier,
+    Task<Result<bool, Error>> SlugExistsAsync(
+        string slug,
         CancellationToken cancellationToken);
 
     Task<Result<Department, Error>> GetActiveByIdAsync(

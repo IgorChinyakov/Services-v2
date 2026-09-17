@@ -10,7 +10,4 @@ public sealed class CreateLocationRequest
 
     [Required]
     public AddressDto Address { get; init; } = null!;
-
-    [Required]
-    public string Timezone { get; init; } = string.Empty;
 }

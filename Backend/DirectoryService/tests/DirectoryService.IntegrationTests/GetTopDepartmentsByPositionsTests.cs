@@ -70,7 +70,7 @@ public sealed class GetTopDepartmentsByPositionsTests : DirectoryServiceTestsBas
             result.IsFailure ? result.Error.GetMessage() : string.Empty);
 
         result.Value.Should().HaveCount(5);
-        result.Value.Select(department => department.Identifier)
+        result.Value.Select(department => department.Slug)
             .Should()
             .Equal("alpha", "bravo", "charlie", "delta", "echo");
         result.Value.Select(department => department.PositionsCount)
@@ -112,13 +112,13 @@ public sealed class GetTopDepartmentsByPositionsTests : DirectoryServiceTestsBas
                 new
                 {
                     Id = emptyDepartmentId.Value,
-                    Identifier = "empty",
+                    Slug = "empty",
                     PositionsCount = 0L,
                 },
                 new
                 {
                     Id = inactivePositionDepartmentId.Value,
-                    Identifier = "inactiveposition",
+                    Slug = "inactiveposition",
                     PositionsCount = 0L,
                 },
             ],

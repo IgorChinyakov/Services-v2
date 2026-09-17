@@ -4,7 +4,7 @@ public sealed record RootDepartmentDto(
     Guid Id,
     Guid? ParentId,
     string Name,
-    string Identifier,
+    string Slug,
     string Path,
     short Depth,
     bool IsActive,

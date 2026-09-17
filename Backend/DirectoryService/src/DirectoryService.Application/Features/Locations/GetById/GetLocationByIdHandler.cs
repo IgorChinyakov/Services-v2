@@ -51,7 +51,6 @@ public sealed class GetLocationByIdHandler
                     Street = item.Address.Street,
                     Building = item.Address.Building,
                 },
-                item.TimeZone.Value,
                 item.IsActive,
                 item.CreatedAt,
                 item.UpdatedAt))

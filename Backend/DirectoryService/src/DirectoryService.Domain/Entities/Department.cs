@@ -17,7 +17,7 @@ public class Department : Entity<DepartmentId>
 
     public Name Name { get; private set; } = null!;
 
-    public Identifier Identifier { get; private set; } = null!;
+    public Slug Slug { get; private set; } = null!;
 
     public Department? Parent { get; private set; }
 
@@ -43,19 +43,19 @@ public class Department : Entity<DepartmentId>
 
     public Department(
         Name name,
-        Identifier identifier,
+        Slug slug,
         Department? parent,
         IEnumerable<LocationId> locationIds)
     {
         Id = DepartmentId.New();
         Name = name;
-        Identifier = identifier;
+        Slug = slug;
         Parent = parent;
         ParentId = parent?.Id;
         Depth = parent is null ? (short)0 : checked((short)(parent.Depth + 1));
         Path = parent is null
-            ? identifier.Value.ToLowerInvariant()
-            : $"{parent.Path}.{identifier.Value.ToLowerInvariant()}";
+            ? slug.Value
+            : $"{parent.Path}.{slug.Value}";
         IsActive = true;
 
         var utcNow = DateTime.UtcNow;

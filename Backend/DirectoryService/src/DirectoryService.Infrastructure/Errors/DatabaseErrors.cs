@@ -54,7 +54,7 @@ public static class DatabaseErrors
         {
             "ix_locations_name" => LocationErrors.NameDuplicate("Name"),
             "ix_locations_address" => LocationErrors.AddressDuplicate("Address"),
-            "ix_departments_identifier" => DepartmentErrors.IdentifierDuplicate("Identifier"),
+            "ix_departments_slug" => DepartmentErrors.SlugDuplicate("Slug"),
             "ix_departments_path" => DepartmentErrors.PathDuplicate(),
             "ix_positions_active_name" => PositionErrors.NameDuplicate("Name"),
             "IX_department_locations_department_id_location_id" =>

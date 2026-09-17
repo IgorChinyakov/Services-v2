@@ -17,8 +17,6 @@ public class Location : Entity<LocationId>
 
     public Address Address { get; private set; } = null!;
 
-    public LocationTimeZone TimeZone { get; private set; } = null!;
-
     public bool IsActive { get; private set; }
 
     public DateTime CreatedAt { get; private set; }
@@ -27,12 +25,11 @@ public class Location : Entity<LocationId>
 
     public IReadOnlyList<DepartmentLocation> DepartmentLocations => _departmentLocations;
 
-    public Location(Name name, Address address, LocationTimeZone timeZone)
+    public Location(Name name, Address address)
     {
         Id = LocationId.New();
         Name = name;
         Address = address;
-        TimeZone = timeZone;
         IsActive = true;
 
         var utcNow = DateTime.UtcNow;

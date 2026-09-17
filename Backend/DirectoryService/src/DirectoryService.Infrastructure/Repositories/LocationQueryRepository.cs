@@ -167,7 +167,6 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                 select
                     l.id as Id,
                     l.name as Name,
-                    l.time_zone as Timezone,
                     l.is_active as IsActive,
                     l.created_at as CreatedAt,
                     (
@@ -203,7 +202,6 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                 locationRow.Id,
                 locationRow.Name,
                 addressDto,
-                locationRow.Timezone,
                 locationRow.IsActive,
                 locationRow.CreatedAt,
                 locationRow.DepartmentCount),
@@ -229,7 +227,6 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
     private sealed record LocationRow(
         Guid Id,
         string Name,
-        string Timezone,
         bool IsActive,
         DateTime CreatedAt,
         long DepartmentCount);

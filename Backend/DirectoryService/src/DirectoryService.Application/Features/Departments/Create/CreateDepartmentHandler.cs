@@ -42,8 +42,8 @@ public sealed class CreateDepartmentHandler
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Starting department creation. Identifier {DepartmentIdentifier}. ParentId {ParentId}",
-            command.Identifier,
+            "Starting department creation. Slug {DepartmentSlug}. ParentId {ParentId}",
+            command.Slug,
             command.ParentId);
 
         var validationResult = await _validator.ValidateAsync(command, cancellationToken);
@@ -61,24 +61,24 @@ public sealed class CreateDepartmentHandler
         }
 
         var nameResult = Name.Create(command.Name);
-        var identifierResult = Identifier.Create(command.Identifier);
+        var slugResult = Slug.Create(command.Slug);
 
         if (nameResult.IsFailure)
             return nameResult.Error;
 
-        if (identifierResult.IsFailure)
-            return identifierResult.Error;
+        if (slugResult.IsFailure)
+            return slugResult.Error;
 
-        var identifierExistsResult = await _departmentRepository.IdentifierExistsAsync(
-            identifierResult.Value.Value,
+        var slugExistsResult = await _departmentRepository.SlugExistsAsync(
+            slugResult.Value.Value,
             cancellationToken);
-        if (identifierExistsResult.IsFailure)
-            return identifierExistsResult.Error;
+        if (slugExistsResult.IsFailure)
+            return slugExistsResult.Error;
 
-        if (identifierExistsResult.Value)
+        if (slugExistsResult.Value)
         {
-            return DepartmentErrors.IdentifierDuplicate(
-                nameof(CreateDepartmentCommand.Identifier));
+            return DepartmentErrors.SlugDuplicate(
+                nameof(CreateDepartmentCommand.Slug));
         }
 
         Department? parent = null;
@@ -113,7 +113,7 @@ public sealed class CreateDepartmentHandler
 
         var department = new Department(
             nameResult.Value,
-            identifierResult.Value,
+            slugResult.Value,
             parent,
             locationIds);
 

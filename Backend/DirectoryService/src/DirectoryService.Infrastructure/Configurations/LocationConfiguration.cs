@@ -62,13 +62,6 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
                 .HasDatabaseName("ix_locations_address");
         });
 
-        builder.OwnsOne(x => x.TimeZone, timeZoneBuilder =>
-        {
-            timeZoneBuilder.Property(x => x.Value)
-                .HasColumnName("time_zone")
-                .IsRequired();
-        });
-
         builder.Property(x => x.IsActive)
             .HasColumnName("is_active")
             .IsRequired();

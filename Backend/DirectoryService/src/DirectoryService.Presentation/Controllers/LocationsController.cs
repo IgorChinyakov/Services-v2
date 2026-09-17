@@ -44,15 +44,13 @@ public sealed class LocationsController : ControllerBase
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Received create location request. Name {LocationName}. Timezone {Timezone}. TraceId {TraceId}",
+            "Received create location request. Name {LocationName}. TraceId {TraceId}",
             request.Name,
-            request.Timezone,
             HttpContext.TraceIdentifier);
 
         var command = new CreateLocationCommand(
             request.Name,
-            request.Address,
-            request.Timezone);
+            request.Address);
 
         var result = await _createLocationHandler.Handle(command, cancellationToken);
 

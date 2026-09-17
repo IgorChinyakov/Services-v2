@@ -82,14 +82,14 @@ public sealed class DepartmentsController : ControllerBase
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Received create department request. Identifier {DepartmentIdentifier}. ParentId {ParentId}. TraceId {TraceId}",
-            request.Identifier,
+            "Received create department request. Slug {DepartmentSlug}. ParentId {ParentId}. TraceId {TraceId}",
+            request.Slug,
             request.ParentId,
             HttpContext.TraceIdentifier);
 
         var command = new CreateDepartmentCommand(
             request.Name,
-            request.Identifier,
+            request.Slug,
             request.ParentId,
             request.LocationIds);
 

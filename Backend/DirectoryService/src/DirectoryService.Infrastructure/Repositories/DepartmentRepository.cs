@@ -28,18 +28,18 @@ public sealed class DepartmentRepository : IDepartmentRepository
         _transactionManager = transactionManager;
     }
 
-    public async Task<Result<bool, Error>> IdentifierExistsAsync(
-        string identifier,
+    public async Task<Result<bool, Error>> SlugExistsAsync(
+        string slug,
         CancellationToken cancellationToken)
     {
         try
         {
-            var normalizedIdentifier = identifier.Trim();
+            var normalizedSlug = slug.Trim();
 
             return await _dbContext.Departments
                 .AsNoTracking()
                 .AnyAsync(
-                    department => department.Identifier.Value == normalizedIdentifier,
+                    department => department.Slug.Value == normalizedSlug,
                     cancellationToken);
         }
         catch (OperationCanceledException)
@@ -50,10 +50,10 @@ public sealed class DepartmentRepository : IDepartmentRepository
         {
             _logger.LogError(
                 exception,
-                "Failed to check department identifier uniqueness. DepartmentIdentifier {DepartmentIdentifier}",
-                identifier);
+                "Failed to check department slug uniqueness. DepartmentSlug {DepartmentSlug}",
+                slug);
 
-            return DatabaseErrors.OperationFailed("check department identifier uniqueness");
+            return DatabaseErrors.OperationFailed("check department slug uniqueness");
         }
     }
 
@@ -193,7 +193,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 .SqlQuery<DepartmentMoveInfo>($"""
                                                SELECT
                                                    id AS "Id",
-                                                   identifier AS "Identifier",
+                                                   slug AS "Slug",
                                                    path::text AS "Path",
                                                    depth AS "Depth",
                                                    is_active AS "IsActive"
@@ -216,7 +216,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 .SqlQuery<DepartmentMoveInfo>($"""
                                                SELECT
                                                    id AS "Id",
-                                                   identifier AS "Identifier",
+                                                   slug AS "Slug",
                                                    path::text AS "Path",
                                                    depth AS "Depth",
                                                    is_active AS "IsActive"
@@ -234,7 +234,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                     .SqlQuery<DepartmentMoveInfo>($"""
                                                    SELECT
                                                        id AS "Id",
-                                                       identifier AS "Identifier",
+                                                       slug AS "Slug",
                                                        path::text AS "Path",
                                                        depth AS "Depth",
                                                        is_active AS "IsActive"
@@ -273,7 +273,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
             }
 
             string oldPath = department.Path;
-            string newPath = parent is null ? department.Identifier : parent.Path + "." + department.Identifier;
+            string newPath = parent is null ? department.Slug : parent.Path + "." + department.Slug;
             Guid? newParentId = parent is null ? null : parent.Id;
             short newDepth = parent is null
                 ? (short)0
@@ -636,7 +636,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
 
     private sealed record DepartmentMoveInfo(
         Guid Id,
-        string Identifier,
+        string Slug,
         string Path,
         short Depth,
         bool IsActive);

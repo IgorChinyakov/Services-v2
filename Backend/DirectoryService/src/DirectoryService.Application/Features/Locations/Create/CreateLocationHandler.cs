@@ -40,9 +40,8 @@ public sealed class CreateLocationHandler
         CancellationToken cancellationToken)
     {
         _logger.LogInformation(
-            "Starting location creation. Name {LocationName}. Timezone {Timezone}",
-            command.Name,
-            command.Timezone);
+            "Starting location creation. Name {LocationName}",
+            command.Name);
 
         var validationResult = await _validator.ValidateAsync(command, cancellationToken);
         if (!validationResult.IsValid)
@@ -64,21 +63,15 @@ public sealed class CreateLocationHandler
             command.Address.City,
             command.Address.Street,
             command.Address.Building);
-        var timeZoneResult = LocationTimeZone.Create(command.Timezone);
-
         if (nameResult.IsFailure)
             return nameResult.Error;
 
         if (addressResult.IsFailure)
             return addressResult.Error;
 
-        if (timeZoneResult.IsFailure)
-            return timeZoneResult.Error;
-
         var location = new Location(
             nameResult.Value,
-            addressResult.Value,
-            timeZoneResult.Value);
+            addressResult.Value);
 
         var addResult = await _locationRepository.AddAsync(location, cancellationToken);
         if (addResult.IsFailure)

@@ -62,7 +62,7 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
             firstResult.IsFailure ? firstResult.Error.GetMessage() : string.Empty);
         secondResult.IsSuccess.Should().BeTrue(
             secondResult.IsFailure ? secondResult.Error.GetMessage() : string.Empty);
-        secondResult.Value.Items.Select(department => department.Identifier)
+        secondResult.Value.Items.Select(department => department.Slug)
             .Should()
             .Equal("head");
     }
@@ -126,7 +126,7 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
             commandResult.IsFailure ? commandResult.Error.GetMessage() : string.Empty);
         queryResult.IsSuccess.Should().BeTrue(
             queryResult.IsFailure ? queryResult.Error.GetMessage() : string.Empty);
-        queryResult.Value.Items.Select(department => department.Identifier)
+        queryResult.Value.Items.Select(department => department.Slug)
             .Should()
             .BeEquivalentTo(["head", "sales"]);
     }
@@ -202,7 +202,7 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
             commandResult.IsFailure ? commandResult.Error.GetMessage() : string.Empty);
         queryResult.IsSuccess.Should().BeTrue(
             queryResult.IsFailure ? queryResult.Error.GetMessage() : string.Empty);
-        queryResult.Value.Items.Select(department => department.Identifier)
+        queryResult.Value.Items.Select(department => department.Slug)
             .Should()
             .Equal("head");
     }

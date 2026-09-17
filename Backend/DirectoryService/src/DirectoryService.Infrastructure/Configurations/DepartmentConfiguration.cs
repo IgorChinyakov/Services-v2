@@ -28,11 +28,11 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
                 .IsRequired();
         });
 
-        builder.OwnsOne(x => x.Identifier, identifierBuilder =>
+        builder.OwnsOne(x => x.Slug, slugBuilder =>
         {
-            identifierBuilder.Property(x => x.Value)
-                .HasColumnName("identifier")
-                .HasMaxLength(Identifier.MAX_LENGTH)
+            slugBuilder.Property(x => x.Value)
+                .HasColumnName("slug")
+                .HasMaxLength(Slug.MAX_LENGTH)
                 .IsRequired();
         });
 
@@ -84,10 +84,17 @@ public class DepartmentConfiguration : IEntityTypeConfiguration<Department>
 
         builder.HasIndex(x => x.ParentId).HasDatabaseName("ix_department_parent_id");
         builder.HasIndex(x => x.CreatedAt).HasDatabaseName("ix_department_created_at");
-        builder.HasIndex(x => x.Path).IsUnique().HasDatabaseName("ix_departments_path");
-        builder.HasIndex(x => x.Path).HasMethod("gist").HasDatabaseName("ix_departments_path_gist");
+        builder.HasIndex(x => x.Path, "IX_Departments_Path_Unique")
+            .IsUnique()
+            .HasDatabaseName("ix_departments_path");
+        builder.HasIndex(x => x.Path, "IX_Departments_Path_Gist")
+            .HasMethod("gist")
+            .HasDatabaseName("ix_departments_path_gist");
 
         builder.OwnsOne(x => x.Name).HasIndex(x => x.Value).HasDatabaseName("ix_departments_name");
-        builder.OwnsOne(x => x.Identifier).HasIndex(x => x.Value).IsUnique().HasDatabaseName("ix_departments_identifier");
+        builder.OwnsOne(x => x.Slug)
+            .HasIndex(x => x.Value)
+            .IsUnique()
+            .HasDatabaseName("ix_departments_slug");
     }
 }

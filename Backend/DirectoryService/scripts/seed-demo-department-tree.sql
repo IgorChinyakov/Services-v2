@@ -1,6 +1,6 @@
 begin;
 
-with child_seed (number, parent_identifier, identifier, name) as (
+with child_seed (number, parent_slug, slug, name) as (
     values
         (1, 'headquarters', 'headquartersstrategy', 'Demo Corporate Strategy'),
         (2, 'headquarters', 'headquarterslegal', 'Demo Legal'),
@@ -47,7 +47,7 @@ with child_seed (number, parent_identifier, identifier, name) as (
 insert into departments (
     id,
     name,
-    identifier,
+    slug,
     parent_id,
     is_active,
     created_at,
@@ -57,19 +57,19 @@ insert into departments (
 select
     ('76000000-0000-0000-0000-' || lpad(child_seed.number::text, 12, '0'))::uuid,
     child_seed.name,
-    child_seed.identifier,
+    child_seed.slug,
     parent.id,
     true,
     timestamptz '2025-04-01 09:00:00+00' + child_seed.number * interval '1 hour',
     timestamptz '2025-04-01 09:00:00+00' + child_seed.number * interval '1 hour',
     parent.depth + 1,
-    (parent.path::text || '.' || child_seed.identifier)::ltree
+    (parent.path::text || '.' || child_seed.slug)::ltree
 from child_seed
 join departments as parent
-    on parent.identifier = child_seed.parent_identifier
+    on parent.slug = child_seed.parent_slug
 on conflict do nothing;
 
-with grandchild_seed (number, parent_identifier, identifier, name) as (
+with grandchild_seed (number, parent_slug, slug, name) as (
     values
         (1, 'headquartersstrategy', 'headquartersresearch', 'Demo Corporate Research'),
         (2, 'headquartersstrategy', 'headquartersinitiatives', 'Demo Strategic Initiatives'),
@@ -93,7 +93,7 @@ with grandchild_seed (number, parent_identifier, identifier, name) as (
 insert into departments (
     id,
     name,
-    identifier,
+    slug,
     parent_id,
     is_active,
     created_at,
@@ -103,21 +103,21 @@ insert into departments (
 select
     ('76100000-0000-0000-0000-' || lpad(grandchild_seed.number::text, 12, '0'))::uuid,
     grandchild_seed.name,
-    grandchild_seed.identifier,
+    grandchild_seed.slug,
     parent.id,
     true,
     timestamptz '2025-05-01 09:00:00+00' + grandchild_seed.number * interval '1 hour',
     timestamptz '2025-05-01 09:00:00+00' + grandchild_seed.number * interval '1 hour',
     parent.depth + 1,
-    (parent.path::text || '.' || grandchild_seed.identifier)::ltree
+    (parent.path::text || '.' || grandchild_seed.slug)::ltree
 from grandchild_seed
 join departments as parent
-    on parent.identifier = grandchild_seed.parent_identifier
+    on parent.slug = grandchild_seed.parent_slug
 on conflict do nothing;
 
 insert into department_locations (id, department_id, location_id)
 select
-    md5('demo-tree-department-location:' || department.identifier)::uuid,
+    md5('demo-tree-department-location:' || department.slug)::uuid,
     department.id,
     location.id
 from departments as department

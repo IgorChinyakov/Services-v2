@@ -6,11 +6,10 @@ using DirectoryService.Domain.Shared;
 using DirectoryService.Infrastructure.Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using DepartmentIdentifier = DirectoryService.Domain.ValueObjects.Department.Identifier;
 using DepartmentName = DirectoryService.Domain.ValueObjects.Department.Name;
+using DepartmentSlug = DirectoryService.Domain.ValueObjects.Department.Slug;
 using LocationAddress = DirectoryService.Domain.ValueObjects.Location.Address;
 using LocationName = DirectoryService.Domain.ValueObjects.Location.Name;
-using LocationTimeZone = DirectoryService.Domain.ValueObjects.Location.LocationTimeZone;
 using PositionName = DirectoryService.Domain.ValueObjects.Position.Name;
 
 namespace DirectoryService.IntegrationTests;
@@ -132,8 +131,7 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
                     $"Country {number}",
                     $"City {number}",
                     $"Street {number}",
-                    $"Building {number}").Value,
-                LocationTimeZone.Create("Europe/Moscow").Value);
+                    $"Building {number}").Value);
 
             await dbContext.Locations.AddAsync(location);
             await dbContext.SaveChangesAsync();
@@ -144,7 +142,7 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
 
     protected async Task<DepartmentId> SeedDepartmentAsync(
         string name,
-        string identifier,
+        string slug,
         DepartmentId? parentId = null,
         IReadOnlyCollection<LocationId>? locationIds = null)
     {
@@ -160,7 +158,7 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
 
             var department = new Department(
                 DepartmentName.Create(name).Value,
-                DepartmentIdentifier.Create(identifier).Value,
+                DepartmentSlug.Create(slug).Value,
                 parent,
                 actualLocationIds);
 

@@ -3,7 +3,7 @@ begin;
 insert into departments (
     id,
     name,
-    identifier,
+    slug,
     parent_id,
     is_active,
     created_at,
@@ -21,7 +21,7 @@ on conflict do nothing;
 
 insert into department_locations (id, department_id, location_id)
 select
-    md5('demo-department-location:' || department.identifier)::uuid,
+    md5('demo-department-location:' || department.slug)::uuid,
     department.id,
     location.id
 from departments as department
@@ -31,7 +31,7 @@ cross join lateral (
     order by created_at, id
     limit 1
 ) as location
-where department.identifier in (
+where department.slug in (
     'engineering',
     'operations',
     'finance',
@@ -65,7 +65,7 @@ values
     ('75000000-0000-0000-0000-000000000015', 'Demo Office Manager', 'Coordinates office operations.', true, '2025-03-15 09:00:00+00', '2025-03-15 09:00:00+00')
 on conflict do nothing;
 
-with requested_links (department_identifier, position_number) as (
+with requested_links (department_slug, position_number) as (
     values
         ('headquarters', 1),
         ('headquarters', 2),
@@ -113,18 +113,18 @@ with requested_links (department_identifier, position_number) as (
 )
 insert into department_positions (id, department_id, position_id)
 select
-    md5(requested_links.department_identifier || ':' || requested_links.position_number)::uuid,
+    md5(requested_links.department_slug || ':' || requested_links.position_number)::uuid,
     department.id,
     ('75000000-0000-0000-0000-' || lpad(requested_links.position_number::text, 12, '0'))::uuid
 from requested_links
 join departments as department
-    on department.identifier = requested_links.department_identifier
+    on department.slug = requested_links.department_slug
 on conflict do nothing;
 
 commit;
 
 select
-    department.identifier,
+    department.slug,
     count(department_position.position_id) as all_positions_count,
     count(position.id) filter (where position.is_active) as active_positions_count
 from departments as department
@@ -132,7 +132,7 @@ left join department_positions as department_position
     on department_position.department_id = department.id
 left join positions as position
     on position.id = department_position.position_id
-where department.identifier in (
+where department.slug in (
     'headquarters',
     'engineering',
     'sales',
@@ -141,5 +141,5 @@ where department.identifier in (
     'support',
     'humanresources',
     'logistics')
-group by department.id, department.identifier
-order by all_positions_count desc, department.identifier;
+group by department.id, department.slug
+order by all_positions_count desc, department.slug;

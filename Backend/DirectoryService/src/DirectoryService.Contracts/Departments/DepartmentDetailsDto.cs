@@ -4,7 +4,7 @@ public sealed record DepartmentDetailsDto(
     Guid Id,
     Guid? ParentId,
     string Name,
-    string Identifier,
+    string Slug,
     string Path,
     short Depth,
     bool IsActive,

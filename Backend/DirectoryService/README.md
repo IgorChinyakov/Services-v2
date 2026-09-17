@@ -37,7 +37,7 @@ Directory Service - единый справочник организационн
 
 - `Id` - `DepartmentId`;
 - `Name` - value object с ограничением длины;
-- `Identifier` - value object, используется в `Path`;
+- `Slug` - стабильный value object для URL и сегмента `Path`;
 - `ParentId` / `Parent` - связь с родительским подразделением;
 - `Children` - дочерние подразделения;
 - `Path` - materialized path дерева, хранится в PostgreSQL как `ltree`;
@@ -58,7 +58,6 @@ Directory Service - единый справочник организационн
 - `Id` - `LocationId`;
 - `Name` - value object, уникальное имя локации;
 - `Address` - value object с полями `Country`, `City`, `Street`, `Building`;
-- `TimeZone` - value object с IANA timezone;
 - `IsActive`;
 - `CreatedAt`, `UpdatedAt`;
 - `DepartmentLocations` - связи с подразделениями.
@@ -106,7 +105,7 @@ Directory Service - единый справочник организационн
 - Поддерживается создание root-подразделения и дочернего подразделения.
 - Проверяется существование активных `locationIds`.
 - Формируются `Path` и `Depth`.
-- `Identifier` уникален.
+- `Slug` уникален.
 - `PUT /api/departments/{departmentId}/locations` - полная замена списка локаций подразделения.
 - Проверяется активность подразделения и всех переданных локаций.
 - Обновление выполняется в транзакции.

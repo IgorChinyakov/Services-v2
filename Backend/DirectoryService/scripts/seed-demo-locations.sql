@@ -38,14 +38,6 @@ seed_locations as (
         city,
         format('Demo Street %s', lpad(number::text, 2, '0')) as street,
         format('%sA', number) as building,
-        case city
-            when 'London' then 'Europe/London'
-            when 'Tokyo' then 'Asia/Tokyo'
-            when 'Berlin' then 'Europe/Berlin'
-            when 'Novosibirsk' then 'Asia/Novosibirsk'
-            when 'Yekaterinburg' then 'Asia/Yekaterinburg'
-            else 'Europe/Moscow'
-        end as time_zone,
         number % 5 <> 0 as is_active,
         timestamptz '2025-01-01 09:00:00+00'
             + (((number * 11) % 37) * interval '1 day') as created_at
@@ -58,7 +50,6 @@ insert into locations (
     city,
     street,
     building,
-    time_zone,
     is_active,
     created_at,
     updated_at)
@@ -69,7 +60,6 @@ select
     city,
     street,
     building,
-    time_zone,
     is_active,
     created_at,
     created_at + interval '2 hours'
@@ -83,7 +73,7 @@ select
     ('71000000-0000-0000-0000-' || lpad(number::text, 12, '0'))::uuid
 from generate_series(1, 36) as numbers(number)
 cross join departments as department
-where department.identifier = 'headquarters'
+where department.slug = 'headquarters'
   and (number % 2 = 0 or number <= 6)
 on conflict do nothing;
 
@@ -94,7 +84,7 @@ select
     ('71000000-0000-0000-0000-' || lpad(number::text, 12, '0'))::uuid
 from generate_series(1, 36) as numbers(number)
 cross join departments as department
-where department.identifier = 'sales'
+where department.slug = 'sales'
   and (number % 3 = 0 or number between 25 and 30)
 on conflict do nothing;
 
@@ -107,12 +97,12 @@ select
 from locations;
 
 select
-    department.identifier,
+    department.slug,
     department.id as department_id,
     count(*) as demo_location_count
 from department_locations as department_location
 join departments as department on department.id = department_location.department_id
 join locations as location on location.id = department_location.location_id
 where location.name like 'Demo %'
-group by department.identifier, department.id
-order by department.identifier;
+group by department.slug, department.id
+order by department.slug;

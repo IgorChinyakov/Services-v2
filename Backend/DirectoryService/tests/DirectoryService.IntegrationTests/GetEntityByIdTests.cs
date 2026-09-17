@@ -41,7 +41,6 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
         envelope.Result.Should().NotBeNull();
         envelope.Result!.Id.Should().Be(locationId.Value);
         envelope.Result.Name.Should().Be("Main Office");
-        envelope.Result.Timezone.Should().Be("Europe/Moscow");
         envelope.Result.Address.Country.Should().Be("Country 1");
     }
 
@@ -82,7 +81,7 @@ public sealed class GetEntityByIdTests : DirectoryServiceTestsBase
         envelope.Result.Should().NotBeNull();
         envelope.Result!.Id.Should().Be(departmentId.Value);
         envelope.Result.Name.Should().Be("Development Department");
-        envelope.Result.Identifier.Should().Be("development");
+        envelope.Result.Slug.Should().Be("development");
         envelope.Result.Path.Should().Be("development");
         envelope.Result.ParentId.Should().BeNull();
     }
