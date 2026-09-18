@@ -21,6 +21,7 @@ using DirectoryService.Application.Features.Locations.Create;
 using DirectoryService.Application.Features.Locations.Delete;
 using DirectoryService.Application.Features.Locations.Get;
 using DirectoryService.Application.Features.Locations.GetById;
+using DirectoryService.Application.Features.Locations.GetTopByDepartments;
 using DirectoryService.Application.Features.Locations.Update;
 using DirectoryService.Application.Features.Positions.CleanupInactive;
 using DirectoryService.Application.Features.Positions.Create;
@@ -65,6 +66,9 @@ public static class DependencyInjectionExtensions
             ICommandHandler<CleanupInactiveDepartmentsCommand, int>,
             CleanupInactiveDepartmentsHandler>();
         services.AddScoped<IQueryHandler<GetLocationsQuery, PagedList<LocationListItemDto>>, GetLocationsHandler>();
+        services.AddScoped<
+            IQueryHandler<GetTopLocationsByDepartmentsQuery, IReadOnlyList<TopLocationByDepartmentsDto>>,
+            GetTopLocationsByDepartmentsHandler>();
         services.AddScoped<
             IQueryHandler<GetLocationByIdQuery, LocationDetailsDto>,
             GetLocationByIdHandler>();

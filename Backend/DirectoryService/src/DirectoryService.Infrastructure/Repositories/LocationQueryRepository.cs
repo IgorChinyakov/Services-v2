@@ -27,6 +27,72 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
         _logger = logger;
     }
 
+    public async Task<Result<IReadOnlyList<TopLocationByDepartmentsDto>, Error>> GetTopByDepartmentsAsync(
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           select
+                               l.id as Id,
+                               l.name as Name,
+                               l.city as City,
+                               l.street as Street,
+                               l.house as House,
+                               l.apartment as Apartment,
+                               count(d.id)::bigint as DepartmentCount
+                           from locations as l
+                           left join department_locations as dl on dl.location_id = l.id
+                           left join departments as d
+                             on d.id = dl.department_id
+                            and d.is_active = true
+                           where l.is_active = true
+                           group by
+                               l.id,
+                               l.name,
+                               l.city,
+                               l.street,
+                               l.house,
+                               l.apartment
+                           order by DepartmentCount desc, l.id
+                           limit 5
+                           """;
+
+        try
+        {
+            await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
+            var command = new CommandDefinition(sql, cancellationToken: cancellationToken);
+            var rows = (await connection.QueryAsync<TopLocationResultRow>(command)).AsList();
+
+            var locations = rows
+                .Select(row => new TopLocationByDepartmentsDto(
+                    row.Id,
+                    row.Name,
+                    new AddressDto
+                    {
+                        City = row.City,
+                        Street = row.Street,
+                        House = row.House,
+                        Apartment = row.Apartment,
+                    },
+                    row.DepartmentCount))
+                .ToList();
+
+            _logger.LogInformation(
+                "Top locations by departments count loaded. ItemCount {ItemCount}",
+                locations.Count);
+
+            return locations;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to load top locations by departments count");
+            return DatabaseErrors.OperationFailed("load top locations by departments count");
+        }
+    }
+
     public async Task<Result<PagedList<LocationListItemDto>, Error>> GetFilteredWithPaginationAsync(
         GetLocationsQuery query,
         CancellationToken cancellationToken)
@@ -272,4 +338,13 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
         string? House,
         string? Apartment,
         long TotalCount);
+
+    private sealed record TopLocationResultRow(
+        Guid Id,
+        string Name,
+        string City,
+        string Street,
+        string House,
+        string Apartment,
+        long DepartmentCount);
 }

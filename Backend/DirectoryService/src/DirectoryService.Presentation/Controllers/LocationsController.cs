@@ -3,6 +3,7 @@ using DirectoryService.Application.Features.Locations.Create;
 using DirectoryService.Application.Features.Locations.Delete;
 using DirectoryService.Application.Features.Locations.Get;
 using DirectoryService.Application.Features.Locations.GetById;
+using DirectoryService.Application.Features.Locations.GetTopByDepartments;
 using DirectoryService.Application.Features.Locations.Update;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Locations;
@@ -115,6 +116,23 @@ public sealed class LocationsController : ControllerBase
             request.MinDepartmentCount);
 
         return await handler.HandleAsync(query, cancellationToken);
+    }
+
+    [HttpGet("top")]
+    [ProducesResponseType<Envelope<IReadOnlyList<TopLocationByDepartmentsDto>>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<IReadOnlyList<TopLocationByDepartmentsDto>>> GetTopAsync(
+        [FromServices]
+        IQueryHandler<GetTopLocationsByDepartmentsQuery, IReadOnlyList<TopLocationByDepartmentsDto>> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received get top locations by departments request. TraceId {TraceId}",
+            HttpContext.TraceIdentifier);
+
+        return await handler.HandleAsync(
+            new GetTopLocationsByDepartmentsQuery(),
+            cancellationToken);
     }
 
     [HttpGet("{id:guid}")]
