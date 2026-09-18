@@ -64,6 +64,10 @@ try
 
     builder.Services.AddApplicationServices(builder.Configuration);
 
+    Log.Information(
+        "Redis L2 cache is {RedisCacheState}",
+        builder.Configuration.GetValue("Redis:Enabled", true) ? "enabled" : "disabled");
+
     var app = builder.Build();
 
     app.UseSerilogRequestLogging(options =>

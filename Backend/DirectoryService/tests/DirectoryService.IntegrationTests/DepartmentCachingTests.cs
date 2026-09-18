@@ -27,7 +27,7 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
 
         // Act
         var response = await client.GetAsync(TreeEndpoint);
-        var keysAfterQuery = await GetRedisDatabaseSizeAsync();
+        var keysAfterQuery = await WaitForRedisWriteAsync(keysBeforeQuery);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -173,5 +173,21 @@ public sealed class DepartmentCachingTests : DirectoryServiceTestsBase
         var envelope = await client.GetFromJsonAsync<Envelope<IReadOnlyList<TopDepartmentByPositionsDto>>>(
             "/api/departments/top-positions");
         return envelope!.Result!;
+    }
+
+    private async Task<long> WaitForRedisWriteAsync(long initialSize)
+    {
+        const int maxAttempts = 20;
+
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            var currentSize = await GetRedisDatabaseSizeAsync();
+            if (currentSize > initialSize)
+                return currentSize;
+
+            await Task.Delay(TimeSpan.FromMilliseconds(100));
+        }
+
+        return await GetRedisDatabaseSizeAsync();
     }
 }

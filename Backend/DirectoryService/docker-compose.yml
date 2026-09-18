@@ -60,7 +60,10 @@ services:
         Username=${POSTGRES_USER:?POSTGRES_USER is required};
         Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       Seq__ServerUrl: http://seq:5341
+      Redis__Enabled: ${REDIS_ENABLED:-true}
       Redis__ConnectionString: redis:6379
+      Redis__ConnectTimeoutMilliseconds: ${REDIS_CONNECT_TIMEOUT_MILLISECONDS:-1000}
+      Redis__OperationTimeoutMilliseconds: ${REDIS_OPERATION_TIMEOUT_MILLISECONDS:-1000}
       DepartmentCleanup__Enabled: ${DEPARTMENT_CLEANUP_ENABLED:-true}
       DepartmentCleanup__CronSchedule: ${DEPARTMENT_CLEANUP_CRON_SCHEDULE:-0 0 2 * * ?}
       DepartmentCleanup__RetentionDays: ${DEPARTMENT_CLEANUP_RETENTION_DAYS:-30}

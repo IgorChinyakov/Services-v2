@@ -5,6 +5,7 @@ using DirectoryService.Infrastructure.Extensions;
 using DirectoryService.Presentation.ApiResponse;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Hybrid;
+using StackExchange.Redis;
 
 namespace DirectoryService.Presentation.Extensions;
 
@@ -51,14 +52,29 @@ public static class DependencyInjectionExtensions
         services.AddLocationCleanup(configuration);
         services.AddPositionCleanup(configuration);
 
-        string redisConnectionString = configuration["Redis:ConnectionString"] ??
-                                       throw new InvalidOperationException(
-                                           "Redis connection string is not configured.");
-
-        services.AddStackExchangeRedisCache(options =>
+        var redisEnabled = configuration.GetValue("Redis:Enabled", true);
+        if (redisEnabled)
         {
-            options.Configuration = redisConnectionString;
-        });
+            string redisConnectionString = configuration["Redis:ConnectionString"] ??
+                                           throw new InvalidOperationException(
+                                               "Redis connection string is not configured.");
+
+            var redisOptions = ConfigurationOptions.Parse(redisConnectionString);
+            redisOptions.AbortOnConnectFail = false;
+            redisOptions.ConnectRetry = 1;
+            redisOptions.ConnectTimeout = configuration.GetValue(
+                "Redis:ConnectTimeoutMilliseconds",
+                1000);
+            redisOptions.AsyncTimeout = configuration.GetValue(
+                "Redis:OperationTimeoutMilliseconds",
+                1000);
+            redisOptions.SyncTimeout = redisOptions.AsyncTimeout;
+
+            services.AddStackExchangeRedisCache(options =>
+            {
+                options.Configuration = redisOptions.ToString(includePassword: true);
+            });
+        }
 
         services.AddHybridCache(options =>
         {
