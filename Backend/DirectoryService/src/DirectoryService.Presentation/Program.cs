@@ -93,7 +93,11 @@ try
 
     app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-    if (app.Environment.IsDevelopment())
+    var applyMigrations = app.Configuration.GetValue(
+        "Database:ApplyMigrationsAtStartup",
+        app.Environment.IsDevelopment());
+
+    if (applyMigrations)
     {
         await using var scope = app.Services.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<DirectoryServiceDbContext>();
@@ -101,7 +105,10 @@ try
         Log.Information("Applying database migrations");
         await dbContext.Database.MigrateAsync();
         Log.Information("Database migrations applied successfully");
+    }
 
+    if (app.Environment.IsDevelopment())
+    {
         app.MapOpenApi();
         app.UseSwaggerUI(options => options.SwaggerEndpoint("/openapi/v1.json", "DirectoryService"));
     }

@@ -1,0 +1,11 @@
+.git
+.idea
+.vscode
+**/.DS_Store
+Backend
+Frontend/directory-service/.env*
+Frontend/directory-service/.next
+Frontend/directory-service/node_modules
+Frontend/directory-service/npm-debug.log*
+**/bin
+**/obj
