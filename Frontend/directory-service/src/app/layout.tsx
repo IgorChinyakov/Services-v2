@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AdminShell from "./admin-shell";
 import { QueryProvider } from "./query-provider";
+import { Toaster } from "@/shared/ui/toast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <QueryProvider>
           <AdminShell>{children}</AdminShell>
+          <Toaster></Toaster>
         </QueryProvider>
       </body>
     </html>

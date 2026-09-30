@@ -1,6 +1,7 @@
 "use client";
 
 import { locationListQueryOptions, LocationCard } from "@/entities/location";
+import CreateLocationDialog from "@/features/create-location/create-location-dialog";
 import { Button } from "@/shared/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, CircleAlert, MapPinned, RefreshCw } from "lucide-react";
@@ -30,6 +31,7 @@ export default function LocationsList() {
               Всего: {locationsQuery.data.totalCount}
             </div>
           )}
+          <CreateLocationDialog />
         </div>
       </header>
 
