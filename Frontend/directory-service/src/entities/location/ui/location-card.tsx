@@ -8,7 +8,6 @@ import {
 import {
   Building2,
   CalendarDays,
-  Clock3,
   MapPin,
   UsersRound,
 } from "lucide-react";
@@ -16,10 +15,10 @@ import type { LocationDto } from "../model/types";
 
 export default function LocationCard({ dto }: { dto: LocationDto }) {
   const address = [
-    dto.address.country,
     dto.address.city,
     dto.address.street,
-    dto.address.building,
+    dto.address.house,
+    dto.address.apartment,
   ]
     .filter(Boolean)
     .join(", ");
@@ -71,15 +70,7 @@ export default function LocationCard({ dto }: { dto: LocationDto }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-background/60 p-3 ring-1 ring-foreground/7">
-            <Clock3 className="mb-2 size-4 text-teal-600" />
-            <p className="text-xs text-muted-foreground">Часовой пояс</p>
-            <p className="mt-1 truncate font-medium">
-              {dto.timezone || "Не указан"}
-            </p>
-          </div>
-
+        <div>
           <div className="rounded-xl bg-background/60 p-3 ring-1 ring-foreground/7">
             <UsersRound className="mb-2 size-4 text-teal-600" />
             <p className="text-xs text-muted-foreground">Подразделений</p>
