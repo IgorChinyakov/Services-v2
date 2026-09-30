@@ -11,6 +11,7 @@ import {
 import { toast } from "@/shared/ui/toast";
 import { useEffect, useRef } from "react";
 import { useCreateLocation } from "./use-create-location";
+import { applyLocationFormErrors } from "./model/apply-location-form-errors";
 
 export default function CreateLocationForm({
   onSuccess,
@@ -64,11 +65,10 @@ export default function CreateLocationForm({
         return; // пользователь закрыл форму — это не ошибка для него
       }
 
-      toast.add({
-        type: "error",
-        description:
-          error instanceof Error ? error.message : "Failed to create location",
-      });
+      const message = applyLocationFormErrors(error, form.setError);
+      if (message) {
+        toast.add({ type: "error", description: message });
+      }
     }
   };
 
