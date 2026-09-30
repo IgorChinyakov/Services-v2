@@ -1,8 +1,8 @@
-import { ApiError } from "./error";
+import type { ApiErrorMessage } from "./error";
 
 export type Envelope<T> = {
   result: T | null;
-  error: ApiError | null;
+  errors: ApiErrorMessage[];
   isError: boolean;
   timeGenerated: string;
 };

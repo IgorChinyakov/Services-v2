@@ -1,3 +1,4 @@
+import { DepartmentsList } from "@/widgets/departments-list";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -5,5 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function Departments() {
-  return <h2>Подразделения</h2>;
+  return <DepartmentsList />;
 }

@@ -16,3 +16,12 @@ export type ApiErrorType =
   | "Conflict"
   | "Authentication"
   | "Authorization";
+
+export class ApiRequestError extends Error {
+  constructor(
+    readonly status: number,
+    readonly errors: ApiErrorMessage[],
+  ) {
+    super(errors.map((item) => item.message).join("; ") || `HTTP ${status}`);
+  }
+}
