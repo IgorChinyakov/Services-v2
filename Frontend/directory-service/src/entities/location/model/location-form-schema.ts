@@ -1,6 +1,6 @@
 import z from "zod";
 
-export const createLocationSchema = z.object({
+export const locationFormSchema = z.object({
   name: z
     .string()
     .trim()
@@ -30,4 +30,4 @@ export const createLocationSchema = z.object({
   }),
 });
 
-export type CreateLocationRequest = z.infer<typeof createLocationSchema>;
+export type LocationFormValues = z.infer<typeof locationFormSchema>;

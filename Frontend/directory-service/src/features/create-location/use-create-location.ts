@@ -1,9 +1,13 @@
-import { locationListQueryOptions } from "@/entities/location";
+import { type LocationFormValues } from "@/entities/location";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createLocation } from "./api/create-location";
-import { CreateLocationRequest } from "./model/create-location-schema";
+import { UseFormSetError } from "react-hook-form";
+import { applyLocationFormErrors } from "./model/apply-location-form-errors";
+import { toast } from "@/shared/ui/toast";
 
-export function useCreateLocation() {
+export function useCreateLocation(
+  setError: UseFormSetError<LocationFormValues>,
+) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -11,12 +15,22 @@ export function useCreateLocation() {
       values,
       signal,
     }: {
-      values: CreateLocationRequest;
+      values: LocationFormValues;
       signal: AbortSignal;
     }) => createLocation(values, signal),
     onSuccess: () =>
       void queryClient.invalidateQueries({
-        queryKey: locationListQueryOptions().queryKey,
+        queryKey: ["locations"],
       }),
+    onError: (error, { signal }) => {
+      if (signal.aborted) {
+        return; // пользователь закрыл форму — это не ошибка для него
+      }
+
+      const message = applyLocationFormErrors(error, setError);
+      if (message) {
+        toast.add({ type: "error", description: message });
+      }
+    },
   });
 }

@@ -1,8 +1,8 @@
-import { CreateLocationRequest } from "../model/create-location-schema";
-import PostResult from "@/shared/api/post-result";
+import type { LocationFormValues } from "@/entities/location";
+import PostResult from "@/shared/api/results/post-result";
 
 export const createLocation = async (
-  request: CreateLocationRequest,
+  request: LocationFormValues,
   signal: AbortSignal,
 ): Promise<string> => {
   return await PostResult<string>({

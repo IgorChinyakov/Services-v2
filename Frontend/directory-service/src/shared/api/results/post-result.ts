@@ -1,8 +1,8 @@
 import axios from "axios";
-import { httpClient } from "./axios-client";
-import { Envelope } from "./envelope";
-import { ApiRequestError } from "./error";
-import ExportData from "./get-repsonse-data-helper";
+import { httpClient } from "../axios-client";
+import { Envelope } from "../envelope";
+import { ApiRequestError } from "../error";
+import ExportData from "../get-repsonse-data-helper";
 
 export type PostResultProps = {
   data: unknown;

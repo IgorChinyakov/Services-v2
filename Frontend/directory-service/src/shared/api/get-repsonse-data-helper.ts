@@ -3,6 +3,24 @@ import { Envelope } from "./envelope";
 import { ApiRequestError } from "./error";
 
 export default function ExportData<T>(response: AxiosResponse<Envelope<T>>) {
+  ExtractError(response);
+
+  const result = response.data.result;
+
+  if (result === null) {
+    throw new Error("Backend returned an empty result");
+  }
+
+  return result;
+}
+
+export function ExportDataWithoutResult(
+  response: AxiosResponse<Envelope<null>>,
+) {
+  ExtractError(response);
+}
+
+function ExtractError(response: AxiosResponse<Envelope<unknown>>) {
   const envelope = response.data;
 
   if (!Array.isArray(envelope.errors)) {
@@ -20,10 +38,4 @@ export default function ExportData<T>(response: AxiosResponse<Envelope<T>>) {
   if (envelope.errors.length > 0) {
     throw new Error("Backend returned an inconsistent response");
   }
-
-  if (envelope.result === null) {
-    throw new Error("Backend returned an empty result");
-  }
-
-  return envelope.result;
 }

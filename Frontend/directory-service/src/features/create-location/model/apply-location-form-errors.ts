@@ -1,12 +1,14 @@
 import { ApiRequestError } from "@/shared/api/error";
+import axios from "axios";
 import type { FieldPath, UseFormSetError } from "react-hook-form";
-import type { CreateLocationRequest } from "./create-location-schema";
+import type { LocationFormValues } from "@/entities/location";
 
-const fieldByErrorCode: Record<string, FieldPath<CreateLocationRequest>> = {
+const fieldByErrorCode: Record<string, FieldPath<LocationFormValues>> = {
   "location.name.duplicate": "name",
+  "location.address.duplicate": "address",
 };
 
-const fieldByInvalidField: Record<string, FieldPath<CreateLocationRequest>> = {
+const fieldByInvalidField: Record<string, FieldPath<LocationFormValues>> = {
   Name: "name",
   "Address.City": "address.city",
   "Address.Street": "address.street",
@@ -16,10 +18,12 @@ const fieldByInvalidField: Record<string, FieldPath<CreateLocationRequest>> = {
 
 export function applyLocationFormErrors(
   error: unknown,
-  setError: UseFormSetError<CreateLocationRequest>,
+  setError: UseFormSetError<LocationFormValues>,
 ): string | null {
   if (!(error instanceof ApiRequestError)) {
-    return error instanceof Error ? error.message : "Failed to create location";
+    return axios.isAxiosError(error) && !error.response
+      ? "Не удалось связаться с сервером. Проверь подключение и попробуй ещё раз."
+      : "Не удалось выполнить операцию. Попробуй ещё раз.";
   }
 
   const unhandledMessages: string[] = [];

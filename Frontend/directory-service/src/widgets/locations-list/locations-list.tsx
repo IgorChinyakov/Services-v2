@@ -2,17 +2,28 @@
 
 import { locationListQueryOptions, LocationCard } from "@/entities/location";
 import CreateLocationDialog from "@/features/create-location/create-location-dialog";
+import EditLocationDialog from "@/features/edit-location/edit-location-dialog";
+import DeleteLocationDialog from "@/features/delete-location/delete-location-dialog";
 import { Button } from "@/shared/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, CircleAlert, MapPinned, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import PaginationControls from "@/shared/ui/pagination-controls";
 
 export default function LocationsList() {
-  const locationsQuery = useQuery(locationListQueryOptions());
+  const [page, setPage] = useState(1);
+
+  const locationsQuery = useQuery(locationListQueryOptions(page, 20));
+  const totalPages = locationsQuery.data?.totalPages;
+
+  if (totalPages !== undefined && page > Math.max(1, totalPages)) {
+    setPage(Math.max(1, totalPages));
+  }
 
   return (
     <section className="mx-auto w-full max-w-7xl space-y-7">
-      <header className="flex flex-col gap-4 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <header className="flex flex-col gap-5 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <div className="mb-2 flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
             <MapPinned className="size-4" />
             Справочник офисов
@@ -25,13 +36,13 @@ export default function LocationsList() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto sm:justify-end">
+          <CreateLocationDialog />
           {!locationsQuery.isLoading && locationsQuery.data !== undefined && (
             <div className="w-fit rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-800">
               Всего: {locationsQuery.data.totalCount}
             </div>
           )}
-          <CreateLocationDialog />
         </div>
       </header>
 
@@ -92,10 +103,28 @@ export default function LocationsList() {
         locationsQuery.data.items.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {locationsQuery.data.items.map((item) => (
-              <LocationCard dto={item} key={item.id} />
+              <LocationCard
+                key={item.id}
+                dto={item}
+                actions={
+                  <div className="flex flex-wrap items-center gap-1">
+                    <EditLocationDialog location={item} />
+                    <DeleteLocationDialog location={item} />
+                  </div>
+                }
+              />
             ))}
           </div>
         )}
+
+      {locationsQuery.data && locationsQuery.data.totalPages > 1 && (
+        <PaginationControls
+          page={page}
+          totalPages={locationsQuery.data.totalPages}
+          hasNextPage={locationsQuery.data.hasNextPage}
+          setPage={setPage}
+        />
+      )}
     </section>
   );
 }

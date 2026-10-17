@@ -5,15 +5,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/shared/ui/card";
-import {
-  Building2,
-  CalendarDays,
-  MapPin,
-  UsersRound,
-} from "lucide-react";
+import { Building2, CalendarDays, MapPin, UsersRound } from "lucide-react";
+import type { ReactNode } from "react";
 import type { LocationDto } from "../model/types";
 
-export default function LocationCard({ dto }: { dto: LocationDto }) {
+export default function LocationCard({
+  dto,
+  actions,
+}: {
+  dto: LocationDto;
+  actions?: ReactNode;
+}) {
   const address = [
     dto.address.city,
     dto.address.street,
@@ -81,9 +83,12 @@ export default function LocationCard({ dto }: { dto: LocationDto }) {
         </div>
       </CardContent>
 
-      <CardFooter className="gap-2 border-t-0 bg-transparent pt-0 text-xs text-muted-foreground">
-        <CalendarDays className="size-4" />
-        Создана {createdAt}
+      <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t-0 bg-transparent pt-0 text-xs text-muted-foreground">
+        <span className="flex items-center gap-2">
+          <CalendarDays className="size-4" />
+          Создана {createdAt}
+        </span>
+        {actions}
       </CardFooter>
     </Card>
   );

@@ -4,21 +4,18 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import {
-  createLocationSchema,
-  type CreateLocationRequest,
-} from "./model/create-location-schema";
+import { locationFormSchema, type LocationFormValues } from "@/entities/location";
 import { toast } from "@/shared/ui/toast";
 import { useEffect, useRef } from "react";
 import { useCreateLocation } from "./use-create-location";
-import { applyLocationFormErrors } from "./model/apply-location-form-errors";
+import { CircleAlert } from "lucide-react";
 
 export default function CreateLocationForm({
   onSuccess,
 }: {
   onSuccess: () => void;
 }) {
-  const form = useForm<CreateLocationRequest>({
+  const form = useForm<LocationFormValues>({
     defaultValues: {
       name: "",
       address: {
@@ -28,10 +25,10 @@ export default function CreateLocationForm({
         apartment: "",
       },
     },
-    resolver: zodResolver(createLocationSchema),
+    resolver: zodResolver(locationFormSchema),
   });
 
-  const createLocationMutation = useCreateLocation();
+  const createLocationMutation = useCreateLocation(form.setError);
 
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -44,7 +41,7 @@ export default function CreateLocationForm({
     };
   }, []);
 
-  const handleSubmit = async (values: CreateLocationRequest) => {
+  const handleSubmit = async (values: LocationFormValues) => {
     const controller = controllerRef.current;
     if (!controller) return;
 
@@ -53,23 +50,15 @@ export default function CreateLocationForm({
         values,
         signal: controller.signal,
       });
-
-      toast.add({
-        type: "success",
-        description: "Location created successfully",
-      });
-
-      onSuccess();
-    } catch (error) {
-      if (controller.signal.aborted) {
-        return; // пользователь закрыл форму — это не ошибка для него
-      }
-
-      const message = applyLocationFormErrors(error, form.setError);
-      if (message) {
-        toast.add({ type: "error", description: message });
-      }
+    } catch {
+      return;
     }
+
+    toast.add({
+      type: "success",
+      description: "Location created successfully",
+    });
+    onSuccess();
   };
 
   return (
@@ -105,6 +94,11 @@ export default function CreateLocationForm({
 
       <fieldset
         className="space-y-4 border-t pt-6"
+        aria-describedby={
+          form.formState.errors.address?.message
+            ? "location-address-error"
+            : undefined
+        }
         onChange={() => {
           if (form.formState.isSubmitted) {
             void form.trigger("address");
@@ -221,6 +215,16 @@ export default function CreateLocationForm({
             )}
           </div>
         </div>
+        {form.formState.errors.address?.message && (
+          <div
+            id="location-address-error"
+            role="alert"
+            className="flex items-start gap-3 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          >
+            <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <p>{form.formState.errors.address.message}</p>
+          </div>
+        )}
       </fieldset>
 
       <div className="flex justify-end border-t pt-6">
