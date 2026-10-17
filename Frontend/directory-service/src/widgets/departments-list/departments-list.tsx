@@ -1,12 +1,54 @@
 "use client";
 
-import { departmentListQueryOptions, DepartmentCard } from "@/entities/department";
+import {
+  departmentListQueryOptions,
+  DepartmentCard,
+} from "@/entities/department";
 import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import PaginationControls from "@/shared/ui/pagination-controls";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, CircleAlert, Network, RefreshCw } from "lucide-react";
+import {
+  Building2,
+  CircleAlert,
+  Network,
+  RefreshCw,
+  Search,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import LocationMultiSelect from "./location-multi-select";
 
 export default function DepartmentsList() {
-  const departmentsQuery = useQuery(departmentListQueryOptions());
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  const [filters, setFilters] = useState({
+    search: "",
+    locationIds: [] as string[],
+  });
+
+  const [locationIds, setLocationIds] = useState<string[]>([]);
+
+  const departmentsQuery = useQuery(
+    departmentListQueryOptions(page, 20, filters.search, filters.locationIds),
+  );
+  const totalPages = departmentsQuery.data?.totalPages;
+
+  if (totalPages !== undefined && page > Math.max(1, totalPages)) {
+    setPage(Math.max(1, totalPages));
+  }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setFilters({
+        search: search.trim(),
+        locationIds: locationIds,
+      });
+    }, 400);
+
+    return () => window.clearTimeout(timer);
+  }, [search, locationIds]);
 
   return (
     <section className="mx-auto w-full max-w-7xl space-y-7">
@@ -30,6 +72,47 @@ export default function DepartmentsList() {
           </div>
         )}
       </header>
+
+      <div
+        role="search"
+        className="rounded-2xl border bg-linear-to-br from-sky-50/70 via-background to-background p-4 shadow-sm dark:from-sky-950/30 sm:p-5"
+      >
+        <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
+          <div className="min-w-0 space-y-2">
+            <label
+              htmlFor="department-search"
+              className="block text-sm font-medium text-foreground"
+            >
+              Найти подразделение
+            </label>
+            <div className="relative">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              />
+              <Input
+                id="department-search"
+                type="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Например, отдел разработки"
+                className="h-11 rounded-xl bg-background pl-10"
+              />
+            </div>
+          </div>
+          <div className="min-w-0">
+            <label
+              htmlFor="department-location-filter"
+              className="mb-2 block text-sm font-medium text-foreground"
+            >
+              Локации
+            </label>
+            <LocationMultiSelect
+              onChange={(locationIds) => setLocationIds(locationIds)}
+            />
+          </div>
+        </div>
+      </div>
 
       {departmentsQuery.isLoading && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -91,6 +174,15 @@ export default function DepartmentsList() {
             ))}
           </div>
         )}
+
+      {departmentsQuery.data && departmentsQuery.data.totalPages > 1 && (
+        <PaginationControls
+          page={page}
+          totalPages={departmentsQuery.data.totalPages}
+          hasNextPage={departmentsQuery.data.hasNextPage}
+          setPage={setPage}
+        />
+      )}
     </section>
   );
 }

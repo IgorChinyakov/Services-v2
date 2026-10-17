@@ -17,7 +17,10 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
         "pageSize=0",
         "pageSize=101",
         "sortBy=unknown",
-        "sortDir=unknown",
+        "sortDirection=unknown",
+        $"parentId={Guid.Empty}",
+        $"locationIds={Guid.Empty}",
+        $"excludeIds={Guid.Empty}",
         $"search={new string('a', 151)}",
     };
 
@@ -57,6 +60,8 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
         envelope.Result.TotalCount.Should().Be(25);
         envelope.Result.Items.Should().HaveCount(20);
         envelope.Result.Items.Select(item => item.Name).Should().BeInAscendingOrder();
+        envelope.Result.Items.Should().OnlyContain(item =>
+            item.IsActive && item.UpdatedAt >= item.CreatedAt && item.DeletedAt == null);
     }
 
     [Fact]
@@ -123,7 +128,7 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
 
         // Act
         var response = await client.GetAsync(
-            "/api/departments?sortBy=name&sortDir=desc");
+            "/api/departments?sortBy=name&sortDirection=desc");
         var envelope = await response.Content
             .ReadFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>();
 
@@ -165,7 +170,7 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
 
         // Act
         var response = await client.GetAsync(
-            "/api/departments?sortBy=createdAt&sortDir=desc");
+            "/api/departments?sortBy=createdAt&sortDirection=desc");
         var envelope = await response.Content
             .ReadFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>();
 
@@ -176,6 +181,121 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
         envelope.Result!.Items.Select(item => item.Id).Should().ContainInOrder(
             newerDepartmentId.Value,
             olderDepartmentId.Value);
+    }
+
+    [Fact]
+    public async Task GetDepartments_IsActiveFalse_ShouldReturnOnlyInactiveDepartments()
+    {
+        var activeId = await SeedDepartmentAsync("Active Department", "activedepartment");
+        var locationId = await SeedLocationAsync("Inactive Department Location");
+        var inactiveId = await SeedDepartmentAsync(
+            "Inactive Department", "inactivedepartment", locationIds: [locationId]);
+        var deletedAt = DateTime.UtcNow;
+
+        await ExecuteDbContextAsync(dbContext => dbContext.Departments
+            .Where(department => department.Id == inactiveId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(department => department.IsActive, false)
+                .SetProperty(department => department.UpdatedAt, deletedAt)
+                .SetProperty(department => department.DeletedAt, deletedAt)));
+
+        using var client = _factory.CreateClient();
+
+        var defaultResponse = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            "/api/departments");
+        var inactiveResponse = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            "/api/departments?isActive=false");
+        var inactiveAtLocationResponse = await client
+            .GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+                $"/api/departments?isActive=false&locationIds={locationId.Value}");
+
+        defaultResponse!.Result!.Items.Should().ContainSingle(item => item.Id == activeId.Value);
+        inactiveResponse!.Result!.TotalCount.Should().Be(1);
+        inactiveResponse.Result.Items.Should().ContainSingle(item => item.Id == inactiveId.Value);
+        inactiveResponse.Result.Items[0].IsActive.Should().BeFalse();
+        inactiveResponse.Result.Items[0].UpdatedAt.Should().Be(deletedAt);
+        inactiveResponse.Result.Items[0].DeletedAt.Should().Be(deletedAt);
+        inactiveAtLocationResponse!.Result!.Items.Should().ContainSingle(item => item.Id == inactiveId.Value);
+    }
+
+    [Fact]
+    public async Task GetDepartments_ParentId_ShouldReturnDirectChildrenOnly()
+    {
+        var parentId = await SeedDepartmentAsync("Parent Department", "parentdepartment");
+        var childId = await SeedDepartmentAsync("Child Department", "childdepartment", parentId);
+        await SeedDepartmentAsync("Grandchild Department", "grandchilddepartment", childId);
+
+        using var client = _factory.CreateClient();
+        var response = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            $"/api/departments?parentId={parentId.Value}");
+
+        response!.Result!.TotalCount.Should().Be(1);
+        response.Result.Items.Should().ContainSingle(item => item.Id == childId.Value);
+    }
+
+    [Fact]
+    public async Task GetDepartments_LocationIds_ShouldMatchAnyActiveLocation()
+    {
+        var firstLocationId = await SeedLocationAsync("First Location");
+        var secondLocationId = await SeedLocationAsync("Second Location");
+        var deletedLocationId = await SeedLocationAsync("Deleted Location");
+        var firstDepartmentId = await SeedDepartmentAsync(
+            "First Department", "firstdepartment", locationIds: [firstLocationId]);
+        var secondDepartmentId = await SeedDepartmentAsync(
+            "Second Department", "seconddepartment", locationIds: [secondLocationId]);
+        await SeedDepartmentAsync(
+            "Deleted Location Department", "deletedlocationdepartment", locationIds: [deletedLocationId]);
+
+        await ExecuteDbContextAsync(dbContext => dbContext.Locations
+            .Where(location => location.Id == deletedLocationId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(location => location.IsActive, false)));
+
+        using var client = _factory.CreateClient();
+        var response = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            $"/api/departments?locationIds={firstLocationId.Value}" +
+            $"&locationIds={secondLocationId.Value}&locationIds={deletedLocationId.Value}");
+
+        response!.Result!.TotalCount.Should().Be(2);
+        response.Result.Items.Select(item => item.Id).Should().BeEquivalentTo(
+            [firstDepartmentId.Value, secondDepartmentId.Value]);
+    }
+
+    [Fact]
+    public async Task GetDepartments_ExcludeIds_ShouldExcludeAllSpecifiedDepartments()
+    {
+        var firstId = await SeedDepartmentAsync("First Department", "firstdepartment");
+        var secondId = await SeedDepartmentAsync("Second Department", "seconddepartment");
+        var remainingId = await SeedDepartmentAsync("Remaining Department", "remainingdepartment");
+
+        using var client = _factory.CreateClient();
+        var response = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            $"/api/departments?excludeIds={firstId.Value}&excludeIds={secondId.Value}");
+
+        response!.Result!.TotalCount.Should().Be(1);
+        response.Result.Items.Should().ContainSingle(item => item.Id == remainingId.Value);
+    }
+
+    [Fact]
+    public async Task GetDepartments_CombinedFilters_ShouldApplyBeforePagingAndUseDistinctCacheKeys()
+    {
+        var locationId = await SeedLocationAsync("Shared Location");
+        var parentId = await SeedDepartmentAsync("Parent Department", "parentdepartment");
+        var excludedId = await SeedDepartmentAsync(
+            "Excluded Department", "excludeddepartment", parentId, [locationId]);
+        var includedId = await SeedDepartmentAsync(
+            "Included Department", "includeddepartment", parentId, [locationId]);
+
+        using var client = _factory.CreateClient();
+        var unfiltered = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            "/api/departments?pageSize=1");
+        var filtered = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            $"/api/departments?parentId={parentId.Value}&locationIds={locationId.Value}" +
+            $"&excludeIds={excludedId.Value}&pageSize=1");
+
+        unfiltered!.Result!.TotalCount.Should().Be(3);
+        filtered!.Result!.TotalCount.Should().Be(1);
+        filtered.Result.Items.Should().ContainSingle(item => item.Id == includedId.Value);
     }
 
     [Theory]

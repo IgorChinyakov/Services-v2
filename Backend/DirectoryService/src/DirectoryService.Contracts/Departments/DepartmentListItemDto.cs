@@ -5,4 +5,7 @@ public sealed record DepartmentListItemDto(
     string Name,
     string Slug,
     string Path,
-    DateTime CreatedAt);
+    bool IsActive,
+    DateTime CreatedAt,
+    DateTime UpdatedAt,
+    DateTime? DeletedAt);

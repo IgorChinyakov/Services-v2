@@ -188,7 +188,7 @@ public sealed class DepartmentsController : ControllerBase
             "Page {Page}. PageSize {PageSize}. TraceId {TraceId}",
             request.Search,
             request.SortBy,
-            request.SortDir,
+            request.SortDirection,
             request.Page,
             request.PageSize,
             HttpContext.TraceIdentifier);
@@ -196,9 +196,13 @@ public sealed class DepartmentsController : ControllerBase
         var query = new GetDepartmentsQuery(
             request.Search,
             request.SortBy,
-            request.SortDir,
+            request.SortDirection,
             request.Page,
-            request.PageSize);
+            request.PageSize,
+            request.IsActive,
+            request.ParentId,
+            request.LocationIds,
+            request.ExcludeIds);
 
         return await handler.HandleAsync(query, cancellationToken);
     }

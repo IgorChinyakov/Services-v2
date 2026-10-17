@@ -24,5 +24,15 @@ public sealed class GetDepartmentsQueryValidator : AbstractValidator<GetDepartme
 
         RuleFor(query => query.PageSize)
             .InclusiveBetween(1, MAX_PAGE_SIZE);
+
+        RuleFor(query => query.ParentId)
+            .NotEqual(Guid.Empty)
+            .When(query => query.ParentId.HasValue);
+
+        RuleForEach(query => query.LocationIds)
+            .NotEqual(Guid.Empty);
+
+        RuleForEach(query => query.ExcludeIds)
+            .NotEqual(Guid.Empty);
     }
 }

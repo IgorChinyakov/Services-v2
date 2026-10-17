@@ -12,4 +12,7 @@ export const httpClient = axios.create({
   headers: {
     Accept: "application/json",
   },
+  paramsSerializer: {
+    indexes: null,
+  },
 });

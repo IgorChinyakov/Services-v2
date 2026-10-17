@@ -8,4 +8,8 @@ public sealed record GetDepartmentsQuery(
     DepartmentSortBy SortBy,
     SortDirection SortDirection,
     int Page,
-    int PageSize) : IQuery;
+    int PageSize,
+    bool? IsActive = null,
+    Guid? ParentId = null,
+    Guid[]? LocationIds = null,
+    Guid[]? ExcludeIds = null) : IQuery;

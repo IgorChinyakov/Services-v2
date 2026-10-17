@@ -6,6 +6,7 @@ using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
 using DirectoryService.Contracts.Departments.Sort;
 using DirectoryService.Domain.Entities;
+using DirectoryService.Domain.Entities.Ids;
 using DirectoryService.Domain.Shared;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -115,16 +116,52 @@ public sealed class GetDepartmentsHandler
     private static string BuildCacheKey(GetDepartmentsQuery query)
     {
         var search = query.Search?.Trim().ToLowerInvariant() ?? string.Empty;
+        var locationIds = NormalizeIds(query.LocationIds);
+        var excludeIds = NormalizeIds(query.ExcludeIds);
 
         return $"departments:list:page={query.Page}:size={query.PageSize}" +
-               $":search={search}:sort={query.SortBy}:direction={query.SortDirection}";
+               $":search={search}:sort={query.SortBy}:direction={query.SortDirection}" +
+               $":active={query.IsActive ?? true}:parent={query.ParentId}" +
+               $":locations={locationIds}:exclude={excludeIds}";
     }
+
+    private static string NormalizeIds(Guid[]? ids) =>
+        ids is { Length: > 0 }
+            ? string.Join(',', ids.Distinct().Order())
+            : string.Empty;
 
     private async Task<PagedList<DepartmentListItemDto>> LoadAsync(
         GetDepartmentsQuery query,
         CancellationToken cancellationToken)
     {
-        var departments = ApplySearch(_readDbContext.Departments, query.Search);
+        var departments = _readDbContext.Departments;
+
+        if (query.IsActive == false)
+        {
+            departments = departments.IgnoreQueryFilters()
+                .Where(department => !department.IsActive);
+        }
+
+        if (query.ParentId is { } parentId)
+        {
+            var departmentParentId = DepartmentId.Create(parentId);
+            departments = departments.Where(department => department.ParentId == departmentParentId);
+        }
+
+        if (query.LocationIds is { Length: > 0 })
+        {
+            var locationIds = query.LocationIds.Select(LocationId.Create).ToArray();
+            departments = departments.Where(department => department.DepartmentLocations.Any(link =>
+                locationIds.Contains(link.LocationId) && link.Location.IsActive));
+        }
+
+        if (query.ExcludeIds is { Length: > 0 })
+        {
+            var excludeIds = query.ExcludeIds.Select(DepartmentId.Create).ToArray();
+            departments = departments.Where(department => !excludeIds.Contains(department.Id));
+        }
+
+        departments = ApplySearch(departments, query.Search);
 
         var totalCount = await departments.LongCountAsync(cancellationToken);
         var offset = ((long)query.Page - 1) * query.PageSize;
@@ -146,7 +183,10 @@ public sealed class GetDepartmentsHandler
                 department.Name.Value,
                 department.Slug.Value,
                 department.Path,
-                department.CreatedAt))
+                department.IsActive,
+                department.CreatedAt,
+                department.UpdatedAt,
+                department.DeletedAt))
             .ToListAsync(cancellationToken);
 
         return PagedList<DepartmentListItemDto>.Create(
