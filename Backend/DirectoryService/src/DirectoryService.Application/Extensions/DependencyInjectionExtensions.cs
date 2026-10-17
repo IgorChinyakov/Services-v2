@@ -26,10 +26,12 @@ using DirectoryService.Application.Features.Locations.Update;
 using DirectoryService.Application.Features.Positions.CleanupInactive;
 using DirectoryService.Application.Features.Positions.Create;
 using DirectoryService.Application.Features.Positions.Delete;
+using DirectoryService.Application.Features.Positions.Get;
 using DirectoryService.Application.Features.Positions.Update;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
 using DirectoryService.Contracts.Locations;
+using DirectoryService.Contracts.Positions;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -56,6 +58,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ICommandHandler<CreatePositionCommand, Guid>, CreatePositionHandler>();
         services.AddScoped<ICommandHandler<UpdatePositionCommand>, UpdatePositionHandler>();
         services.AddScoped<ICommandHandler<DeletePositionCommand>, DeletePositionHandler>();
+        services.AddScoped<IQueryHandler<GetPositionsQuery, PositionCursorPageDto>, GetPositionsHandler>();
         services.AddScoped<
             ICommandHandler<CleanupInactiveLocationsCommand, int>,
             CleanupInactiveLocationsHandler>();

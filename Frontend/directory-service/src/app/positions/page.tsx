@@ -1,3 +1,4 @@
+import { PositionsList } from "@/widgets/positions-list";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -5,9 +6,5 @@ export const metadata: Metadata = {
 };
 
 export default function Positions() {
-  return (
-    <>
-      <h2>Позиции</h2>
-    </>
-  );
+  return <PositionsList />;
 }

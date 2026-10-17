@@ -57,6 +57,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
         services.AddScoped<IDepartmentQueryRepository, DepartmentQueryRepository>();
         services.AddScoped<IPositionRepository, PositionRepository>();
+        services.AddScoped<IPositionQueryRepository, PositionQueryRepository>();
         services.AddScoped<ICacheInvalidator, CacheInvalidator>();
 
         return services;

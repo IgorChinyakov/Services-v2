@@ -1,7 +1,9 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Positions.Create;
 using DirectoryService.Application.Features.Positions.Delete;
+using DirectoryService.Application.Features.Positions.Get;
 using DirectoryService.Application.Features.Positions.Update;
+using DirectoryService.Contracts.Positions;
 using DirectoryService.Contracts.Positions.Requests;
 using DirectoryService.Domain.Shared;
 using DirectoryService.Presentation.ApiResponse;
@@ -18,6 +20,20 @@ public sealed class PositionsController : ControllerBase
     public PositionsController(ILogger<PositionsController> logger)
     {
         _logger = logger;
+    }
+
+    [HttpGet]
+    [ProducesResponseType<Envelope<PositionCursorPageDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<PositionCursorPageDto>> GetAsync(
+        [FromQuery] GetPositionsRequest request,
+        [FromServices] IQueryHandler<GetPositionsQuery, PositionCursorPageDto> handler,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetPositionsQuery(request.Cursor, request.Size, request.DepartmentId);
+
+        return await handler.HandleAsync(query, cancellationToken);
     }
 
     [HttpPost]
