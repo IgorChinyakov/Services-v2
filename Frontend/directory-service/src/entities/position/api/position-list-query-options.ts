@@ -1,10 +1,13 @@
 import { infiniteQueryOptions } from "@tanstack/react-query";
 import { fetchPositions } from "./fetch-positions";
 
-export const positionsInfiniteQueryOptions = () =>
+export const positionsInfiniteQueryOptions = (
+  departmentId: string | null = null,
+) =>
   infiniteQueryOptions({
-    queryKey: ["positions", "infinite"] as const,
+    queryKey: ["positions", "infinite", departmentId] as const,
     initialPageParam: null as string | null,
-    queryFn: ({ signal, pageParam }) => fetchPositions({ signal, pageParam }),
+    queryFn: ({ signal, pageParam }) =>
+      fetchPositions({ signal, pageParam, departmentId }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   });
