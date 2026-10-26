@@ -159,7 +159,7 @@ docker compose up -d --build
 
 Все контроллеры возвращают результат через `EndpointResult`, который преобразует `Result`/`Error` в `Envelope`.
 
-Успешные операции возвращают HTTP `200`.
+Операции создания возвращают HTTP `201`, остальные успешные операции - HTTP `200`.
 
 Типовые ошибки:
 
@@ -186,3 +186,13 @@ docker compose up -d --build
 - `404` для отсутствующего department.
 
 Текущий фокус следующего этапа - продолжать расширять CRUD-сценарии и при необходимости покрывать сложные операции интеграционными тестами.
+
+## Интеграционные тесты
+
+Интеграционные тесты запускают API через `WebApplicationFactory`, поднимают реальный PostgreSQL в Testcontainers и очищают данные между тестами с помощью Respawn. Команды и запросы проверяются через `HttpClient`; прямые вызовы handlers и моки репозиториев или `DbContext` не используются.
+
+Запуск только интеграционных тестов:
+
+```bash
+dotnet test tests/DirectoryService.IntegrationTests/DirectoryService.IntegrationTests.csproj
+```

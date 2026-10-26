@@ -1,0 +1,300 @@
+Pager usage is off.
+                                                          version                                                           
+----------------------------------------------------------------------------------------------------------------------------
+ PostgreSQL 16.13 (Debian 16.13-1.pgdg13+1) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+(1 row)
+
+ departments | active_departments 
+-------------+--------------------
+       10061 |               9172
+(1 row)
+
+ department_locations 
+----------------------
+                30079
+(1 row)
+
+ department_positions 
+----------------------
+                30033
+(1 row)
+
+===== BASELINE: TARGET INDEXES DISABLED =====
+BEGIN
+DROP INDEX
+DROP INDEX
+DROP INDEX
+DROP INDEX
+DROP INDEX
+ANALYZE
+ANALYZE
+ANALYZE
+--- GET /departments/{id}/children ---
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=781.71..781.74 rows=9 width=87) (actual time=1.294..1.295 rows=9 loops=1)
+   Sort Key: child.name, child.id
+   Sort Method: quicksort  Memory: 26kB
+   Buffers: shared hit=530
+   ->  Seq Scan on departments child  (cost=0.00..781.57 rows=9 width=87) (actual time=1.028..1.289 rows=9 loops=1)
+         Filter: (is_active AND (parent_id = 'f4e08f11-a085-115b-cf4f-443c27757227'::uuid))
+         Rows Removed by Filter: 10052
+         Buffers: shared hit=530
+         SubPlan 2
+           ->  Seq Scan on departments nested  (cost=0.00..365.61 rows=9172 width=16) (actual time=0.001..0.492 rows=9172 loops=1)
+                 Filter: is_active
+                 Rows Removed by Filter: 889
+                 Buffers: shared hit=265
+ Planning:
+   Buffers: shared hit=66
+ Planning Time: 0.412 ms
+ Execution Time: 1.310 ms
+(17 rows)
+
+--- GET /departments/{id}/ancestors ---
+                                                                QUERY PLAN                                                                 
+-------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=517.16..517.39 rows=92 width=86) (actual time=1.028..1.028 rows=3 loops=1)
+   Sort Key: ancestor.depth, ancestor.id
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=268
+   ->  Nested Loop  (cost=0.29..514.16 rows=92 width=86) (actual time=0.014..1.027 rows=3 loops=1)
+         Join Filter: (ancestor.path @> departments.path)
+         Rows Removed by Join Filter: 9168
+         Buffers: shared hit=268
+         ->  Index Scan using "PK_departments" on departments  (cost=0.29..8.30 rows=1 width=66) (actual time=0.012..0.012 rows=1 loops=1)
+               Index Cond: (id = 'fcce4e7e-3b5a-b890-cd76-d7925d8f8722'::uuid)
+               Filter: is_active
+               Buffers: shared hit=3
+         ->  Seq Scan on departments ancestor  (cost=0.00..390.76 rows=9171 width=120) (actual time=0.001..0.525 rows=9171 loops=1)
+               Filter: (is_active AND (id <> 'fcce4e7e-3b5a-b890-cd76-d7925d8f8722'::uuid))
+               Rows Removed by Filter: 890
+               Buffers: shared hit=265
+ Planning:
+   Buffers: shared hit=78
+ Planning Time: 0.117 ms
+ Execution Time: 1.051 ms
+(20 rows)
+
+--- GET /departments/tree/search?q=platform ---
+                                                   QUERY PLAN                                                   
+----------------------------------------------------------------------------------------------------------------
+ Sort  (cost=394.27..394.50 rows=93 width=86) (actual time=2.247..2.249 rows=96 loops=1)
+   Sort Key: name, id
+   Sort Method: quicksort  Memory: 38kB
+   Buffers: shared hit=265
+   ->  Seq Scan on departments  (cost=0.00..391.23 rows=93 width=86) (actual time=0.013..2.192 rows=96 loops=1)
+         Filter: (is_active AND ((name)::text ~~* '%platform%'::text))
+         Rows Removed by Filter: 9965
+         Buffers: shared hit=265
+ Planning:
+   Buffers: shared hit=6
+ Planning Time: 0.128 ms
+ Execution Time: 2.253 ms
+(12 rows)
+
+--- location relation lookup by location_id ---
+                                                            QUERY PLAN                                                             
+-----------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=684.14..1073.84 rows=84 width=16) (actual time=0.713..1.385 rows=100 loops=1)
+   Hash Cond: (d.id = dl.department_id)
+   Buffers: shared hit=572
+   ->  Seq Scan on departments d  (cost=0.00..365.61 rows=9172 width=16) (actual time=0.001..0.398 rows=9172 loops=1)
+         Filter: is_active
+         Rows Removed by Filter: 889
+         Buffers: shared hit=265
+   ->  Hash  (cost=682.99..682.99 rows=92 width=16) (actual time=0.706..0.706 rows=100 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 13kB
+         Buffers: shared hit=307
+         ->  Seq Scan on department_locations dl  (cost=0.00..682.99 rows=92 width=16) (actual time=0.005..0.700 rows=100 loops=1)
+               Filter: (location_id = '824359dc-47d9-54c9-afaa-9a890026e0c3'::uuid)
+               Rows Removed by Filter: 29979
+               Buffers: shared hit=307
+ Planning:
+   Buffers: shared hit=40
+ Planning Time: 0.110 ms
+ Execution Time: 1.390 ms
+(18 rows)
+
+--- position relation lookup by position_id ---
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=682.66..1072.36 rows=91 width=16) (actual time=0.647..1.326 rows=100 loops=1)
+   Hash Cond: (d.id = dp.department_id)
+   Buffers: shared hit=571
+   ->  Seq Scan on departments d  (cost=0.00..365.61 rows=9172 width=16) (actual time=0.002..0.405 rows=9172 loops=1)
+         Filter: is_active
+         Rows Removed by Filter: 889
+         Buffers: shared hit=265
+   ->  Hash  (cost=681.41..681.41 rows=100 width=16) (actual time=0.640..0.640 rows=100 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 13kB
+         Buffers: shared hit=306
+         ->  Seq Scan on department_positions dp  (cost=0.00..681.41 rows=100 width=16) (actual time=0.002..0.635 rows=100 loops=1)
+               Filter: (position_id = '0f717d54-1d78-e7b7-76d8-4ee288a92b62'::uuid)
+               Rows Removed by Filter: 29933
+               Buffers: shared hit=306
+ Planning:
+   Buffers: shared hit=27 read=1
+ Planning Time: 0.226 ms
+ Execution Time: 1.332 ms
+(18 rows)
+
+ROLLBACK
+===== OPTIMIZED: TARGET INDEXES ENABLED =====
+ANALYZE
+ANALYZE
+ANALYZE
+--- GET /departments/{id}/children ---
+                                                                        QUERY PLAN                                                                         
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=85.56..85.59 rows=9 width=87) (actual time=0.119..0.120 rows=9 loops=1)
+   Sort Key: child.name, child.id
+   Sort Method: quicksort  Memory: 26kB
+   Buffers: shared hit=15 read=8
+   ->  Bitmap Heap Scan on departments child  (cost=4.36..85.42 rows=9 width=87) (actual time=0.043..0.111 rows=9 loops=1)
+         Recheck Cond: (parent_id = 'f4e08f11-a085-115b-cf4f-443c27757227'::uuid)
+         Filter: is_active
+         Rows Removed by Filter: 1
+         Heap Blocks: exact=3
+         Buffers: shared hit=15 read=8
+         ->  Bitmap Index Scan on ix_department_parent_id  (cost=0.00..4.36 rows=10 width=0) (actual time=0.035..0.035 rows=10 loops=1)
+               Index Cond: (parent_id = 'f4e08f11-a085-115b-cf4f-443c27757227'::uuid)
+               Buffers: shared read=2
+         SubPlan 1
+           ->  Index Scan using ix_department_parent_id on departments nested  (cost=0.29..44.44 rows=9 width=0) (actual time=0.007..0.007 rows=0 loops=9)
+                 Index Cond: (parent_id = child.id)
+                 Filter: is_active
+                 Buffers: shared hit=12 read=6
+ Planning:
+   Buffers: shared hit=35
+ Planning Time: 0.152 ms
+ Execution Time: 0.130 ms
+(22 rows)
+
+--- GET /departments/{id}/ancestors ---
+                                                                   QUERY PLAN                                                                   
+------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=222.83..223.06 rows=92 width=86) (actual time=0.031..0.032 rows=3 loops=1)
+   Sort Key: ancestor.depth, ancestor.id
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=9
+   ->  Nested Loop  (cost=13.34..219.83 rows=92 width=86) (actual time=0.026..0.029 rows=3 loops=1)
+         Buffers: shared hit=9
+         ->  Index Scan using "PK_departments" on departments  (cost=0.29..8.30 rows=1 width=66) (actual time=0.003..0.003 rows=1 loops=1)
+               Index Cond: (id = 'fcce4e7e-3b5a-b890-cd76-d7925d8f8722'::uuid)
+               Filter: is_active
+               Buffers: shared hit=3
+         ->  Bitmap Heap Scan on departments ancestor  (cost=13.06..210.15 rows=92 width=120) (actual time=0.022..0.023 rows=3 loops=1)
+               Recheck Cond: (path @> departments.path)
+               Filter: (is_active AND (id <> 'fcce4e7e-3b5a-b890-cd76-d7925d8f8722'::uuid))
+               Rows Removed by Filter: 1
+               Heap Blocks: exact=3
+               Buffers: shared hit=6
+               ->  Bitmap Index Scan on ix_departments_path_gist  (cost=0.00..13.03 rows=101 width=0) (actual time=0.020..0.020 rows=4 loops=1)
+                     Index Cond: (path @> departments.path)
+                     Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=14
+ Planning Time: 0.145 ms
+ Execution Time: 0.078 ms
+(23 rows)
+
+--- GET /departments/tree/search?q=platform ---
+                                                                   QUERY PLAN                                                                    
+-------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=249.47..249.70 rows=93 width=86) (actual time=0.171..0.173 rows=96 loops=1)
+   Sort Key: name, id
+   Sort Method: quicksort  Memory: 38kB
+   Buffers: shared hit=108
+   ->  Bitmap Heap Scan on departments  (cost=56.67..246.43 rows=93 width=86) (actual time=0.036..0.115 rows=96 loops=1)
+         Recheck Cond: (((name)::text ~~* '%platform%'::text) AND is_active)
+         Heap Blocks: exact=95
+         Buffers: shared hit=108
+         ->  Bitmap Index Scan on ix_departments_active_name_trgm  (cost=0.00..56.64 rows=93 width=0) (actual time=0.030..0.030 rows=96 loops=1)
+               Index Cond: ((name)::text ~~* '%platform%'::text)
+               Buffers: shared hit=13
+ Planning:
+   Buffers: shared hit=10
+ Planning Time: 0.206 ms
+ Execution Time: 0.188 ms
+(15 rows)
+
+--- location relation lookup by location_id ---
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=206.48..596.18 rows=84 width=16) (actual time=0.095..0.841 rows=100 loops=1)
+   Hash Cond: (d.id = dl.department_id)
+   Buffers: shared hit=367
+   ->  Seq Scan on departments d  (cost=0.00..365.61 rows=9172 width=16) (actual time=0.002..0.471 rows=9172 loops=1)
+         Filter: is_active
+         Rows Removed by Filter: 889
+         Buffers: shared hit=265
+   ->  Hash  (cost=205.33..205.33 rows=92 width=16) (actual time=0.087..0.087 rows=100 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 13kB
+         Buffers: shared hit=102
+         ->  Bitmap Heap Scan on department_locations dl  (cost=5.00..205.33 rows=92 width=16) (actual time=0.020..0.082 rows=100 loops=1)
+               Recheck Cond: (location_id = '824359dc-47d9-54c9-afaa-9a890026e0c3'::uuid)
+               Heap Blocks: exact=100
+               Buffers: shared hit=102
+               ->  Bitmap Index Scan on idx_department_locations_location_id  (cost=0.00..4.98 rows=92 width=0) (actual time=0.015..0.015 rows=100 loops=1)
+                     Index Cond: (location_id = '824359dc-47d9-54c9-afaa-9a890026e0c3'::uuid)
+                     Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=32
+ Planning Time: 0.118 ms
+ Execution Time: 0.848 ms
+(21 rows)
+
+--- position relation lookup by position_id ---
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Hash Join  (cost=206.31..596.01 rows=85 width=16) (actual time=0.103..0.790 rows=100 loops=1)
+   Hash Cond: (d.id = dp.department_id)
+   Buffers: shared hit=367
+   ->  Seq Scan on departments d  (cost=0.00..365.61 rows=9172 width=16) (actual time=0.001..0.420 rows=9172 loops=1)
+         Filter: is_active
+         Rows Removed by Filter: 889
+         Buffers: shared hit=265
+   ->  Hash  (cost=205.15..205.15 rows=93 width=16) (actual time=0.095..0.095 rows=100 loops=1)
+         Buckets: 1024  Batches: 1  Memory Usage: 13kB
+         Buffers: shared hit=102
+         ->  Bitmap Heap Scan on department_positions dp  (cost=5.01..205.15 rows=93 width=16) (actual time=0.020..0.089 rows=100 loops=1)
+               Recheck Cond: (position_id = '0f717d54-1d78-e7b7-76d8-4ee288a92b62'::uuid)
+               Heap Blocks: exact=100
+               Buffers: shared hit=102
+               ->  Bitmap Index Scan on idx_department_positions_position_id  (cost=0.00..4.98 rows=93 width=0) (actual time=0.013..0.013 rows=100 loops=1)
+                     Index Cond: (position_id = '0f717d54-1d78-e7b7-76d8-4ee288a92b62'::uuid)
+                     Buffers: shared hit=2
+ Planning:
+   Buffers: shared hit=30
+ Planning Time: 0.083 ms
+ Execution Time: 0.810 ms
+(21 rows)
+
+--- department relation lookup uses leading composite columns ---
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on department_locations  (cost=4.31..15.46 rows=3 width=16) (actual time=0.008..0.010 rows=3 loops=1)
+   Recheck Cond: (department_id = 'fcce4e7e-3b5a-b890-cd76-d7925d8f8722'::uuid)
+   Heap Blocks: exact=3
+   Buffers: shared hit=5
+   ->  Bitmap Index Scan on "IX_department_locations_department_id_location_id"  (cost=0.00..4.31 rows=3 width=0) (actual time=0.007..0.007 rows=3 loops=1)
+         Index Cond: (department_id = 'fcce4e7e-3b5a-b890-cd76-d7925d8f8722'::uuid)
+         Buffers: shared hit=2
+ Planning Time: 0.012 ms
+ Execution Time: 0.012 ms
+(9 rows)
+
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Bitmap Heap Scan on department_positions  (cost=4.31..15.46 rows=3 width=16) (actual time=0.011..0.013 rows=3 loops=1)
+   Recheck Cond: (department_id = 'fcce4e7e-3b5a-b890-cd76-d7925d8f8722'::uuid)
+   Heap Blocks: exact=3
+   Buffers: shared hit=5
+   ->  Bitmap Index Scan on "IX_department_positions_department_id_position_id"  (cost=0.00..4.31 rows=3 width=0) (actual time=0.009..0.010 rows=3 loops=1)
+         Index Cond: (department_id = 'fcce4e7e-3b5a-b890-cd76-d7925d8f8722'::uuid)
+         Buffers: shared hit=2
+ Planning Time: 0.051 ms
+ Execution Time: 0.017 ms
+(9 rows)
+
