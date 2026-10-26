@@ -4,7 +4,10 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { locationFormSchema, type LocationFormValues } from "@/entities/location";
+import {
+  locationFormSchema,
+  type LocationFormValues,
+} from "@/entities/location";
 import { toast } from "@/shared/ui/toast";
 import { useEffect, useRef } from "react";
 import { useCreateLocation } from "./use-create-location";
@@ -221,7 +224,10 @@ export default function CreateLocationForm({
             role="alert"
             className="flex items-start gap-3 rounded-xl border border-destructive/25 bg-destructive/5 px-4 py-3 text-sm text-destructive"
           >
-            <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <CircleAlert
+              className="mt-0.5 size-4 shrink-0"
+              aria-hidden="true"
+            />
             <p>{form.formState.errors.address.message}</p>
           </div>
         )}
