@@ -202,7 +202,8 @@ public sealed class DepartmentsController : ControllerBase
             request.IsActive,
             request.ParentId,
             request.LocationIds,
-            request.ExcludeIds);
+            request.ExcludeIds,
+            request.ExcludeSubtreeOf);
 
         return await handler.HandleAsync(query, cancellationToken);
     }

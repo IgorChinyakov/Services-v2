@@ -11,4 +11,5 @@ public sealed record GetDepartmentsRequest(
     bool? IsActive = null,
     Guid? ParentId = null,
     Guid[]? LocationIds = null,
-    Guid[]? ExcludeIds = null);
+    Guid[]? ExcludeIds = null,
+    Guid? ExcludeSubtreeOf = null);

@@ -1,5 +1,14 @@
 import type { PagedResult } from "@/shared/api";
 
+export type DepartmentTreeNodeDto = {
+  id: string;
+  name: string;
+  slug: string;
+  path: string;
+  depth: number;
+  hasChildren: boolean;
+};
+
 export type DepartmentNodeDto = {
   id: string;
   parentId: string | null;
@@ -11,6 +20,18 @@ export type DepartmentNodeDto = {
   createdAt: string;
   updatedAt: string;
   hasMoreChildren: boolean;
+};
+
+export type DepartmentDetailsDto = {
+  id: string;
+  parentId: string | null;
+  name: string;
+  slug: string;
+  path: string;
+  depth: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type RootDepartmentDto = DepartmentNodeDto & {
@@ -65,3 +86,7 @@ export type DepartmentListItemDto = {
 };
 
 export type DepartmentsPagedResultDto = PagedResult<DepartmentListItemDto>;
+
+export type UpdateDepartmentParentRequest = {
+  parentId: string | null | undefined;
+};

@@ -4,7 +4,7 @@ import {
   departmentListQueryOptions,
   DepartmentCard,
 } from "@/entities/department";
-import { Button } from "@/shared/ui/button";
+import { Button, buttonVariants } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import PaginationControls from "@/shared/ui/pagination-controls";
 import { useQuery } from "@tanstack/react-query";
@@ -12,11 +12,13 @@ import {
   Building2,
   CircleAlert,
   Network,
+  Pencil,
   RefreshCw,
   Search,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import LocationMultiSelect from "./location-multi-select";
+import Link from "next/link";
 
 export default function DepartmentsList() {
   const [search, setSearch] = useState("");
@@ -30,7 +32,12 @@ export default function DepartmentsList() {
   const [locationIds, setLocationIds] = useState<string[]>([]);
 
   const departmentsQuery = useQuery(
-    departmentListQueryOptions(page, 20, filters.search, filters.locationIds),
+    departmentListQueryOptions({
+      page,
+      pageSize: 20,
+      search: filters.search,
+      locationIds: filters.locationIds,
+    }),
   );
   const totalPages = departmentsQuery.data?.totalPages;
 
@@ -170,7 +177,23 @@ export default function DepartmentsList() {
         departmentsQuery.data.items.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {departmentsQuery.data.items.map((department) => (
-              <DepartmentCard dto={department} key={department.id} />
+              <DepartmentCard
+                dto={department}
+                key={department.id}
+                actions={
+                  // TODO: Replace with navigation to /departments/[id] when the detail page is ready.
+                  <Link
+                    href={`/departments/${department.id}`}
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                    })}
+                  >
+                    <Pencil data-icon="inline-start" />
+                    Редактировать
+                  </Link>
+                }
+              />
             ))}
           </div>
         )}

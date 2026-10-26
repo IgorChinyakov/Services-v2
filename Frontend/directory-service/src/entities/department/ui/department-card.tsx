@@ -6,9 +6,16 @@ import {
   CardTitle,
 } from "@/shared/ui/card";
 import { Building2, CalendarDays, GitBranch } from "lucide-react";
+import type { ReactNode } from "react";
 import type { DepartmentListItemDto } from "../model/types";
 
-export default function DepartmentCard({ dto }: { dto: DepartmentListItemDto }) {
+export default function DepartmentCard({
+  dto,
+  actions,
+}: {
+  dto: DepartmentListItemDto;
+  actions?: ReactNode;
+}) {
   const createdAt = new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
     month: "long",
@@ -47,9 +54,12 @@ export default function DepartmentCard({ dto }: { dto: DepartmentListItemDto }) 
         </div>
       </CardContent>
 
-      <CardFooter className="gap-2 border-t-0 bg-transparent pt-0 text-xs text-muted-foreground">
-        <CalendarDays className="size-4" />
-        Создано {createdAt}
+      <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t-0 bg-transparent pt-0 text-xs text-muted-foreground">
+        <span className="flex items-center gap-2">
+          <CalendarDays className="size-4" />
+          Создано {createdAt}
+        </span>
+        {actions}
       </CardFooter>
     </Card>
   );

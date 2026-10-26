@@ -21,6 +21,7 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
         $"parentId={Guid.Empty}",
         $"locationIds={Guid.Empty}",
         $"excludeIds={Guid.Empty}",
+        $"excludeSubtreeOf={Guid.Empty}",
         $"search={new string('a', 151)}",
     };
 
@@ -274,6 +275,40 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
 
         response!.Result!.TotalCount.Should().Be(1);
         response.Result.Items.Should().ContainSingle(item => item.Id == remainingId.Value);
+    }
+
+    [Fact]
+    public async Task GetDepartments_ExcludeSubtreeOf_ShouldExcludeRootAndDescendantsBeforePaging()
+    {
+        var rootId = await SeedDepartmentAsync("Alpha Root", "alpharoot");
+        await SeedDepartmentAsync("Alpha Child", "alphachild", rootId);
+        var childId = await SeedDepartmentAsync("Alpha Branch", "alphabranch", rootId);
+        await SeedDepartmentAsync("Alpha Grandchild", "alphagrandchild", childId);
+        var otherId = await SeedDepartmentAsync("Bravo Root", "bravoroot");
+        var otherChildId = await SeedDepartmentAsync("Bravo Child", "bravochild", otherId);
+
+        using var client = _factory.CreateClient();
+        var firstPage = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            $"/api/departments?excludeSubtreeOf={rootId.Value}&pageSize=1");
+        var secondPage = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            $"/api/departments?excludeSubtreeOf={rootId.Value}&page=2&pageSize=1");
+        var unfiltered = await client.GetFromJsonAsync<Envelope<PagedList<DepartmentListItemDto>>>(
+            "/api/departments?pageSize=1");
+
+        firstPage!.Result!.TotalCount.Should().Be(2);
+        firstPage.Result.Items.Should().ContainSingle(item => item.Id == otherChildId.Value);
+        secondPage!.Result!.TotalCount.Should().Be(2);
+        secondPage.Result.Items.Should().ContainSingle(item => item.Id == otherId.Value);
+        unfiltered!.Result!.TotalCount.Should().Be(6);
+    }
+
+    [Fact]
+    public async Task GetDepartments_ExcludeSubtreeOfUnknownDepartment_ShouldReturnNotFound()
+    {
+        using var client = _factory.CreateClient();
+        var response = await client.GetAsync($"/api/departments?excludeSubtreeOf={Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]

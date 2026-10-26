@@ -34,5 +34,9 @@ public sealed class GetDepartmentsQueryValidator : AbstractValidator<GetDepartme
 
         RuleForEach(query => query.ExcludeIds)
             .NotEqual(Guid.Empty);
+
+        RuleFor(query => query.ExcludeSubtreeOf)
+            .NotEqual(Guid.Empty)
+            .When(query => query.ExcludeSubtreeOf.HasValue);
     }
 }

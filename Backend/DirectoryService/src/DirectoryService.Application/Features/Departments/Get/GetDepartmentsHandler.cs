@@ -1,12 +1,14 @@
 using CSharpFunctionalExtensions;
 using DirectoryService.Application.Abstractions.Database;
 using DirectoryService.Application.Abstractions.Handlers;
+using DirectoryService.Application.Exceptions;
 using DirectoryService.Application.Extensions.Validation;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
 using DirectoryService.Contracts.Departments.Sort;
 using DirectoryService.Domain.Entities;
 using DirectoryService.Domain.Entities.Ids;
+using DirectoryService.Domain.Errors;
 using DirectoryService.Domain.Shared;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
@@ -52,20 +54,28 @@ public sealed class GetDepartmentsHandler
         var cacheKey = BuildCacheKey(query);
         var loadedFromDatabase = false;
 
-        var departments = await _hybridCache.GetOrCreateAsync(
-            cacheKey,
-            factory: async factoryCancellationToken =>
-            {
-                loadedFromDatabase = true;
+        PagedList<DepartmentListItemDto> departments;
+        try
+        {
+            departments = await _hybridCache.GetOrCreateAsync(
+                cacheKey,
+                factory: async factoryCancellationToken =>
+                {
+                    loadedFromDatabase = true;
 
-                _logger.LogInformation(
-                    "Department list cache miss. Loading data from database. CacheKey {CacheKey}",
-                    cacheKey);
+                    _logger.LogInformation(
+                        "Department list cache miss. Loading data from database. CacheKey {CacheKey}",
+                        cacheKey);
 
-                return await LoadAsync(query, factoryCancellationToken);
-            },
-            tags: [CacheConstants.DEPARTMENTS_CACHE_TAG],
-            cancellationToken: cancellationToken);
+                    return await LoadAsync(query, factoryCancellationToken);
+                },
+                tags: [CacheConstants.DEPARTMENTS_CACHE_TAG],
+                cancellationToken: cancellationToken);
+        }
+        catch (QueryCacheException exception)
+        {
+            return exception.Error;
+        }
 
         _logger.LogInformation(
             loadedFromDatabase
@@ -122,7 +132,8 @@ public sealed class GetDepartmentsHandler
         return $"departments:list:page={query.Page}:size={query.PageSize}" +
                $":search={search}:sort={query.SortBy}:direction={query.SortDirection}" +
                $":active={query.IsActive ?? true}:parent={query.ParentId}" +
-               $":locations={locationIds}:exclude={excludeIds}";
+               $":locations={locationIds}:exclude={excludeIds}" +
+               $":excludeSubtreeOf={query.ExcludeSubtreeOf}";
     }
 
     private static string NormalizeIds(Guid[]? ids) =>
@@ -159,6 +170,24 @@ public sealed class GetDepartmentsHandler
         {
             var excludeIds = query.ExcludeIds.Select(DepartmentId.Create).ToArray();
             departments = departments.Where(department => !excludeIds.Contains(department.Id));
+        }
+
+        if (query.ExcludeSubtreeOf is { } excludedDepartmentId)
+        {
+            var subtreePath = await _readDbContext.Departments
+                .IgnoreQueryFilters()
+                .Where(department => department.Id == DepartmentId.Create(excludedDepartmentId))
+                .Select(department => department.Path)
+                .SingleOrDefaultAsync(cancellationToken);
+
+            if (subtreePath is null)
+            {
+                throw new QueryCacheException(DepartmentErrors.NotFound(
+                    excludedDepartmentId, nameof(query.ExcludeSubtreeOf)));
+            }
+
+            departments = departments.Where(department =>
+                !((LTree)department.Path).IsDescendantOf((LTree)subtreePath));
         }
 
         departments = ApplySearch(departments, query.Search);
