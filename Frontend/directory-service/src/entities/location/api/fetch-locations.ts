@@ -6,6 +6,7 @@ export const fetchLocations = async (
   pageSize: number,
   page: number,
   search: string | null = null,
+  departmentIds: string[] | null = null,
 ): Promise<LocationsPagedResultDto> => {
   return await GetResult<LocationsPagedResultDto>({
     url: "locations",
@@ -14,6 +15,7 @@ export const fetchLocations = async (
       pageSize,
       page,
       search,
+      departmentIds,
     },
   });
 };
