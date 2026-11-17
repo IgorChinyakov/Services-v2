@@ -76,11 +76,12 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                                       select 1
                                       from departments child
                                       where child.parent_id = d.id
-                                        and child.is_active = true
-                                  ) as HasChildren
+                                        and child.deleted_at is null
+                                  ) as HasChildren,
+                                  d.is_active as IsActive
                            from departments d
                            where d.parent_id is null
-                             and d.is_active = true
+                             and d.deleted_at is null
                            order by d.name, d.id
                            """;
 
@@ -96,7 +97,7 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                                select 1
                                from departments
                                where id = @DepartmentId
-                                 and is_active = true
+                                 and deleted_at is null
                            );
 
                            select child.id as Id,
@@ -108,11 +109,12 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                                       select 1
                                       from departments nested
                                       where nested.parent_id = child.id
-                                        and nested.is_active = true
-                                  ) as HasChildren
+                                        and nested.deleted_at is null
+                                  ) as HasChildren,
+                                  child.is_active as IsActive
                            from departments child
                            where child.parent_id = @DepartmentId
-                             and child.is_active = true
+                             and child.deleted_at is null
                            order by child.name, child.id
                            """;
 
@@ -156,14 +158,14 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                                select 1
                                from departments
                                where id = @DepartmentId
-                                 and is_active = true
+                                 and deleted_at is null
                            );
 
                            with target as (
                                select path
                                from departments
                                where id = @DepartmentId
-                                 and is_active = true
+                                 and deleted_at is null
                            )
                            select ancestor.id as Id,
                                   ancestor.name as Name,
@@ -174,13 +176,14 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                                       select 1
                                       from departments child
                                       where child.parent_id = ancestor.id
-                                        and child.is_active = true
-                                  ) as HasChildren
+                                        and child.deleted_at is null
+                                  ) as HasChildren,
+                                  ancestor.is_active as IsActive
                            from target
                            join departments ancestor
                              on ancestor.path @> target.path
                             and ancestor.id <> @DepartmentId
-                            and ancestor.is_active = true
+                            and ancestor.deleted_at is null
                            order by ancestor.depth, ancestor.id
                            """;
 
@@ -225,9 +228,10 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                                       d.name,
                                       d.slug,
                                       d.path,
-                                      d.depth
+                                      d.depth,
+                                      d.is_active
                                from departments d
-                               where d.is_active = true
+                               where d.deleted_at is null
                                  and d.name ilike @Search
                            )
                            select match.id as MatchId,
@@ -235,31 +239,33 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                                   match.slug as MatchSlug,
                                   match.path::text as MatchPath,
                                   match.depth as MatchDepth,
+                                  match.is_active as MatchIsActive,
                                   exists(
                                       select 1
                                       from departments child
                                       where child.parent_id = match.id
-                                        and child.is_active = true
+                                        and child.deleted_at is null
                                   ) as MatchHasChildren,
                                   ancestor.id as AncestorId,
                                   ancestor.name as AncestorName,
                                   ancestor.slug as AncestorSlug,
                                   ancestor.path::text as AncestorPath,
                                   ancestor.depth as AncestorDepth,
+                                  ancestor.is_active as AncestorIsActive,
                                   case
                                       when ancestor.id is null then false
                                       else exists(
                                           select 1
                                           from departments child
                                           where child.parent_id = ancestor.id
-                                            and child.is_active = true
+                                            and child.deleted_at is null
                                       )
                                   end as AncestorHasChildren
                            from matches match
                            left join departments ancestor
                              on ancestor.path @> match.path
                             and ancestor.id <> match.id
-                            and ancestor.is_active = true
+                            and ancestor.deleted_at is null
                            order by match.name, match.id, ancestor.depth, ancestor.id
                            """;
 
@@ -283,7 +289,8 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                         match.MatchSlug,
                         match.MatchPath,
                         match.MatchDepth,
-                        match.MatchHasChildren);
+                        match.MatchHasChildren,
+                        match.MatchIsActive);
 
                     var ancestors = group
                         .Where(row => row.AncestorId.HasValue)
@@ -294,7 +301,8 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
                             row.AncestorSlug!,
                             row.AncestorPath!,
                             row.AncestorDepth!.Value,
-                            row.AncestorHasChildren))
+                            row.AncestorHasChildren,
+                            row.AncestorIsActive!.Value))
                         .ToList();
 
                     return new DepartmentTreeSearchResultDto(department, ancestors);
@@ -348,11 +356,13 @@ public sealed class DepartmentQueryRepository : IDepartmentQueryRepository
         string MatchSlug,
         string MatchPath,
         short MatchDepth,
+        bool MatchIsActive,
         bool MatchHasChildren,
         Guid? AncestorId,
         string? AncestorName,
         string? AncestorSlug,
         string? AncestorPath,
         short? AncestorDepth,
+        bool? AncestorIsActive,
         bool AncestorHasChildren);
 }

@@ -8,4 +8,5 @@ public sealed record LocationListItemDto(
     AddressDto Address,
     bool IsActive,
     DateTime CreatedAt,
-    long DepartmentCount);
+    long DepartmentCount,
+    DateTime? DeletedAt);

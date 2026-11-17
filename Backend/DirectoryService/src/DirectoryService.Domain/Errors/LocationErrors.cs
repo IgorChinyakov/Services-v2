@@ -4,6 +4,12 @@ namespace DirectoryService.Domain.Errors;
 
 public static class LocationErrors
 {
+    public static Error ArchivedNotFound(Guid locationId, string? invalidField = null) =>
+        Error.NotFound(
+            "location.not_found",
+            $"Archived location with id '{locationId}' was not found.",
+            invalidField);
+
     public static Error NotFound(Guid? locationId = null, string? invalidField = null)
     {
         var message = locationId is null

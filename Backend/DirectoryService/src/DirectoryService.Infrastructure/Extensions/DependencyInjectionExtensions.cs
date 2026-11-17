@@ -55,9 +55,11 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ILocationRepository, LocationRepository>();
         services.AddScoped<ILocationQueryRepository, LocationQueryRepository>();
         services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+        services.AddScoped<IDepartmentBulkItemExecutor, DepartmentBulkItemExecutor>();
         services.AddScoped<IDepartmentQueryRepository, DepartmentQueryRepository>();
         services.AddScoped<IPositionRepository, PositionRepository>();
         services.AddScoped<IPositionQueryRepository, PositionQueryRepository>();
+        services.AddScoped<ISearchQueryRepository, SearchQueryRepository>();
         services.AddScoped<ICacheInvalidator, CacheInvalidator>();
 
         return services;

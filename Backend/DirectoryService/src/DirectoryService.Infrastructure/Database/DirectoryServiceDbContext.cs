@@ -21,6 +21,8 @@ public class DirectoryServiceDbContext : DbContext, IReadDbContext
 
     IQueryable<Department> IReadDbContext.Departments => Departments.AsNoTracking();
 
+    IQueryable<Position> IReadDbContext.Positions => Positions.AsNoTracking();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("ltree");

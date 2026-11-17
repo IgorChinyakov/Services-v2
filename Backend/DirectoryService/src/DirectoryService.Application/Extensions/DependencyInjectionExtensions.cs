@@ -1,6 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.AddLocation;
 using DirectoryService.Application.Features.Departments.AddPosition;
+using DirectoryService.Application.Features.Departments.Bulk;
 using DirectoryService.Application.Features.Departments.CleanupInactive;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.Get;
@@ -11,9 +12,11 @@ using DirectoryService.Application.Features.Departments.GetTopByPositions;
 using DirectoryService.Application.Features.Departments.GetTree;
 using DirectoryService.Application.Features.Departments.RemoveLocation;
 using DirectoryService.Application.Features.Departments.RemovePosition;
+using DirectoryService.Application.Features.Departments.Restore;
 using DirectoryService.Application.Features.Departments.SearchTree;
 using DirectoryService.Application.Features.Departments.SoftDelete;
 using DirectoryService.Application.Features.Departments.Update;
+using DirectoryService.Application.Features.Departments.UpdateActivity;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
 using DirectoryService.Application.Features.Locations.CleanupInactive;
@@ -22,16 +25,20 @@ using DirectoryService.Application.Features.Locations.Delete;
 using DirectoryService.Application.Features.Locations.Get;
 using DirectoryService.Application.Features.Locations.GetById;
 using DirectoryService.Application.Features.Locations.GetTopByDepartments;
+using DirectoryService.Application.Features.Locations.Restore;
 using DirectoryService.Application.Features.Locations.Update;
 using DirectoryService.Application.Features.Positions.CleanupInactive;
 using DirectoryService.Application.Features.Positions.Create;
 using DirectoryService.Application.Features.Positions.Delete;
 using DirectoryService.Application.Features.Positions.Get;
+using DirectoryService.Application.Features.Positions.GetById;
 using DirectoryService.Application.Features.Positions.Update;
+using DirectoryService.Application.Features.Search;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Departments;
 using DirectoryService.Contracts.Locations;
 using DirectoryService.Contracts.Positions;
+using DirectoryService.Contracts.Search;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -44,8 +51,11 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ICommandHandler<CreateLocationCommand, Guid>, CreateLocationHandler>();
         services.AddScoped<ICommandHandler<UpdateLocationCommand>, UpdateLocationHandler>();
         services.AddScoped<ICommandHandler<DeleteLocationCommand>, DeleteLocationHandler>();
+        services.AddScoped<ICommandHandler<RestoreLocationCommand>, RestoreLocationHandler>();
         services.AddScoped<ICommandHandler<CreateDepartmentCommand, Guid>, CreateDepartmentHandler>();
+        services.AddScoped<ICommandHandler<BulkDepartmentCommand, BulkDepartmentResultDto>, BulkDepartmentHandler>();
         services.AddScoped<ICommandHandler<UpdateDepartmentCommand>, UpdateDepartmentHandler>();
+        services.AddScoped<ICommandHandler<UpdateDepartmentActivityCommand>, UpdateDepartmentActivityHandler>();
         services.AddScoped<ICommandHandler<AddDepartmentLocationCommand>, AddDepartmentLocationHandler>();
         services.AddScoped<ICommandHandler<RemoveDepartmentLocationCommand>, RemoveDepartmentLocationHandler>();
         services.AddScoped<ICommandHandler<AddDepartmentPositionCommand>, AddDepartmentPositionHandler>();
@@ -55,10 +65,13 @@ public static class DependencyInjectionExtensions
             ICommandHandler<UpdateDepartmentParentCommand, DepartmentMoveResultDto>,
             UpdateDepartmentParentHandler>();
         services.AddScoped<ICommandHandler<SoftDeleteDepartmentCommand>, SoftDeleteDepartmentHandler>();
+        services.AddScoped<ICommandHandler<RestoreDepartmentCommand>, RestoreDepartmentHandler>();
         services.AddScoped<ICommandHandler<CreatePositionCommand, Guid>, CreatePositionHandler>();
         services.AddScoped<ICommandHandler<UpdatePositionCommand>, UpdatePositionHandler>();
         services.AddScoped<ICommandHandler<DeletePositionCommand>, DeletePositionHandler>();
         services.AddScoped<IQueryHandler<GetPositionsQuery, PositionCursorPageDto>, GetPositionsHandler>();
+        services.AddScoped<IQueryHandler<GetPositionByIdQuery, PositionListItemDto>, GetPositionByIdHandler>();
+        services.AddScoped<IQueryHandler<SearchQuery, IReadOnlyList<GlobalSearchResultDto>>, SearchHandler>();
         services.AddScoped<
             ICommandHandler<CleanupInactiveLocationsCommand, int>,
             CleanupInactiveLocationsHandler>();

@@ -131,9 +131,10 @@ public sealed class GetDepartmentsHandler
 
         return $"departments:list:page={query.Page}:size={query.PageSize}" +
                $":search={search}:sort={query.SortBy}:direction={query.SortDirection}" +
-               $":active={query.IsActive ?? true}:parent={query.ParentId}" +
+               $":active={query.IsActive?.ToString() ?? "default"}:parent={query.ParentId}" +
                $":locations={locationIds}:exclude={excludeIds}" +
-               $":excludeSubtreeOf={query.ExcludeSubtreeOf}";
+               $":excludeSubtreeOf={query.ExcludeSubtreeOf}" +
+               $":archived={query.IsArchived?.ToString() ?? "legacy"}";
     }
 
     private static string NormalizeIds(Guid[]? ids) =>
@@ -145,12 +146,20 @@ public sealed class GetDepartmentsHandler
         GetDepartmentsQuery query,
         CancellationToken cancellationToken)
     {
-        var departments = _readDbContext.Departments;
+        var departments = _readDbContext.Departments.IgnoreQueryFilters();
 
-        if (query.IsActive == false)
+        if (query.IsArchived is { } isArchived)
         {
-            departments = departments.IgnoreQueryFilters()
-                .Where(department => !department.IsActive);
+            departments = departments.Where(department => isArchived
+                ? department.DeletedAt != null
+                : department.DeletedAt == null);
+            if (query.IsActive is { } isActive)
+                departments = departments.Where(department => department.IsActive == isActive);
+        }
+        else
+        {
+            departments = departments.Where(department =>
+                department.DeletedAt == null && department.IsActive == (query.IsActive ?? true));
         }
 
         if (query.ParentId is { } parentId)

@@ -191,13 +191,19 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
         var locationId = await SeedLocationAsync("Inactive Department Location");
         var inactiveId = await SeedDepartmentAsync(
             "Inactive Department", "inactivedepartment", locationIds: [locationId]);
+        var archivedId = await SeedDepartmentAsync("Archived Department", "archiveddepartment");
         var deletedAt = DateTime.UtcNow;
 
         await ExecuteDbContextAsync(dbContext => dbContext.Departments
             .Where(department => department.Id == inactiveId)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(department => department.IsActive, false)
-                .SetProperty(department => department.UpdatedAt, deletedAt)
+                .SetProperty(department => department.UpdatedAt, deletedAt)));
+
+        await ExecuteDbContextAsync(dbContext => dbContext.Departments
+            .Where(department => department.Id == archivedId)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(department => department.IsActive, false)
                 .SetProperty(department => department.DeletedAt, deletedAt)));
 
         using var client = _factory.CreateClient();
@@ -215,7 +221,7 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
         inactiveResponse.Result.Items.Should().ContainSingle(item => item.Id == inactiveId.Value);
         inactiveResponse.Result.Items[0].IsActive.Should().BeFalse();
         inactiveResponse.Result.Items[0].UpdatedAt.Should().Be(deletedAt);
-        inactiveResponse.Result.Items[0].DeletedAt.Should().Be(deletedAt);
+        inactiveResponse.Result.Items[0].DeletedAt.Should().BeNull();
         inactiveAtLocationResponse!.Result!.Items.Should().ContainSingle(item => item.Id == inactiveId.Value);
     }
 

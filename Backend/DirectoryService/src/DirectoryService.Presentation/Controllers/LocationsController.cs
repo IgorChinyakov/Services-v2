@@ -4,6 +4,7 @@ using DirectoryService.Application.Features.Locations.Delete;
 using DirectoryService.Application.Features.Locations.Get;
 using DirectoryService.Application.Features.Locations.GetById;
 using DirectoryService.Application.Features.Locations.GetTopByDepartments;
+using DirectoryService.Application.Features.Locations.Restore;
 using DirectoryService.Application.Features.Locations.Update;
 using DirectoryService.Contracts.Common;
 using DirectoryService.Contracts.Locations;
@@ -93,6 +94,26 @@ public sealed class LocationsController : ControllerBase
             cancellationToken);
     }
 
+    [HttpPatch("{locationId:guid}/restore")]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> RestoreAsync(
+        Guid locationId,
+        [FromServices] ICommandHandler<RestoreLocationCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation(
+            "Received restore location request. LocationId {LocationId}. TraceId {TraceId}",
+            locationId,
+            HttpContext.TraceIdentifier);
+
+        return await handler.Handle(
+            new RestoreLocationCommand(locationId),
+            cancellationToken);
+    }
+
     [HttpGet]
     [ProducesResponseType<Envelope<PagedList<LocationListItemDto>>>(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
@@ -113,7 +134,8 @@ public sealed class LocationsController : ControllerBase
             request.SortDir,
             request.DepartmentIds,
             request.Search,
-            request.MinDepartmentCount);
+            request.MinDepartmentCount,
+            request.IsArchived);
 
         return await handler.HandleAsync(query, cancellationToken);
     }

@@ -67,6 +67,15 @@ public interface IDepartmentRepository
         DepartmentId departmentId,
         CancellationToken cancellationToken);
 
+    Task<Result<DateTime, Error>> RestoreAsync(
+        DepartmentId departmentId,
+        CancellationToken cancellationToken);
+
+    Task<UnitResult<Error>> UpdateActivityAsync(
+        DepartmentId departmentId,
+        bool isActive,
+        CancellationToken cancellationToken);
+
     Task<Result<int, Error>> CleanupInactiveAsync(
         DateTime deletedBeforeUtc,
         int batchSize,

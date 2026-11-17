@@ -6,4 +6,5 @@ public sealed record DepartmentTreeNodeDto(
     string Slug,
     string Path,
     short Depth,
-    bool HasChildren);
+    bool HasChildren,
+    bool IsActive = true);

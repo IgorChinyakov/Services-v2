@@ -8,4 +8,6 @@ public sealed record LocationDetailsDto(
     AddressDto Address,
     bool IsActive,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    long DepartmentCount,
+    DateTime? DeletedAt);

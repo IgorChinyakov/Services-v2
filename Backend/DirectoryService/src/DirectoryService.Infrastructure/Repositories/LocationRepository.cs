@@ -73,6 +73,37 @@ public sealed class LocationRepository : ILocationRepository
         }
     }
 
+    public async Task<Result<Location, Error>> GetArchivedByIdAsync(
+        LocationId locationId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var location = await _dbContext.Locations
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(
+                    item => item.Id == locationId && !item.IsActive && item.DeletedAt != null,
+                    cancellationToken);
+
+            return location is null
+                ? LocationErrors.ArchivedNotFound(locationId.Value, nameof(locationId))
+                : location;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(
+                exception,
+                "Failed to load archived location. LocationId {LocationId}",
+                locationId.Value);
+
+            return DatabaseErrors.OperationFailed("load archived location");
+        }
+    }
+
     public async Task<Result<Location, Error>> AddAsync(Location location, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(location);

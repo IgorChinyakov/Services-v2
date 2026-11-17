@@ -58,4 +58,11 @@ public class Location : Entity<LocationId>
         DeletedAt = deletedAtUtc;
         UpdatedAt = deletedAtUtc;
     }
+
+    public void Restore()
+    {
+        IsActive = true;
+        DeletedAt = null;
+        UpdatedAt = DateTime.UtcNow;
+    }
 }

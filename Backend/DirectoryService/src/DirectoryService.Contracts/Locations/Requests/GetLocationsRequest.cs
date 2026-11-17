@@ -9,4 +9,5 @@ public record GetLocationsRequest(
     SortDirection SortDir = SortDirection.Asc,
     Guid[]? DepartmentIds = null,
     string? Search = null,
-    int? MinDepartmentCount = null);
+    int? MinDepartmentCount = null,
+    bool IsArchived = false);

@@ -58,6 +58,83 @@ public sealed class GetLocationsTests : DirectoryServiceTestsBase
     }
 
     [Fact]
+    public async Task GetLocations_ArchiveView_ShouldReturnOnlySoftDeletedLocationsAndUseSeparateCache()
+    {
+        var activeId = await SeedLocationAsync("Active Office");
+        var archivedId = await SeedLocationAsync("Archived Office");
+        var inactiveId = await SeedLocationAsync("Inactive Office");
+
+        await ExecuteDbContextAsync(async dbContext =>
+        {
+            var archived = await dbContext.Locations.SingleAsync(location => location.Id == archivedId);
+            archived.SoftDelete();
+            await dbContext.SaveChangesAsync();
+
+            await dbContext.Locations
+                .Where(location => location.Id == inactiveId)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(location => location.IsActive, false));
+        });
+
+        using var client = _factory.CreateClient();
+
+        foreach (var isArchived in new[] { false, true, false, true })
+        {
+            var response = await client.GetAsync($"/api/locations?isArchived={isArchived}");
+            var envelope = await response.Content
+                .ReadFromJsonAsync<Envelope<PagedList<LocationListItemDto>>>();
+
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            envelope!.IsError.Should().BeFalse();
+            envelope.Result!.TotalCount.Should().Be(1);
+            envelope.Result.Items.Should().ContainSingle(location =>
+                location.Id == (isArchived ? archivedId.Value : activeId.Value) &&
+                location.IsActive == !isArchived);
+            if (isArchived)
+                envelope.Result.Items[0].DeletedAt.Should().NotBeNull();
+            else
+                envelope.Result.Items[0].DeletedAt.Should().BeNull();
+        }
+    }
+
+    [Fact]
+    public async Task GetLocations_ArchiveView_ShouldApplyFiltersAndPagination()
+    {
+        var firstId = await SeedLocationAsync("Archive Office A");
+        var secondId = await SeedLocationAsync("Archive Office B");
+        var otherId = await SeedLocationAsync("Archive Office Other");
+        var activeId = await SeedLocationAsync("Archive Office Active");
+        var departmentId = await SeedDepartmentAsync(
+            "Archive Department",
+            "archive-department",
+            locationIds: [firstId, secondId, activeId]);
+
+        await ExecuteDbContextAsync(async dbContext =>
+        {
+            var archivedLocations = await dbContext.Locations
+                .Where(location => location.Id == firstId || location.Id == secondId || location.Id == otherId)
+                .ToListAsync();
+
+            foreach (var location in archivedLocations)
+                location.SoftDelete();
+
+            await dbContext.SaveChangesAsync();
+        });
+
+        using var client = _factory.CreateClient();
+        var response = await client.GetAsync(
+            $"/api/locations?isArchived=true&departmentIds={departmentId.Value}" +
+            "&search=Office&page=2&pageSize=1&sortBy=name&sortDir=asc");
+        var envelope = await response.Content
+            .ReadFromJsonAsync<Envelope<PagedList<LocationListItemDto>>>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        envelope!.IsError.Should().BeFalse();
+        envelope.Result!.TotalCount.Should().Be(2);
+        envelope.Result.Page.Should().Be(2);
+        envelope.Result.Items.Should().ContainSingle(location => location.Id == secondId.Value);
+    }
+
+    [Fact]
     public async Task GetLocations_WithMinimumDepartmentCount_ShouldFilterByAggregate()
     {
         // Arrange

@@ -13,4 +13,5 @@ public sealed record GetDepartmentsQuery(
     Guid? ParentId = null,
     Guid[]? LocationIds = null,
     Guid[]? ExcludeIds = null,
-    Guid? ExcludeSubtreeOf = null) : IQuery;
+    Guid? ExcludeSubtreeOf = null,
+    bool? IsArchived = null) : IQuery;

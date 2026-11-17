@@ -10,4 +10,5 @@ public record GetLocationsQuery(
     SortDirection SortDirection = SortDirection.Asc,
     Guid[]? DepartmentIds = null,
     string? Search = null,
-    int? MinDepartmentCount = null) : IQuery;
+    int? MinDepartmentCount = null,
+    bool IsArchived = false) : IQuery;

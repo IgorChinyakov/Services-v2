@@ -39,7 +39,8 @@ public sealed class GetDepartmentByIdHandler
 
         var departmentId = DepartmentId.Create(query.Id);
         var department = await _readDbContext.Departments
-            .Where(item => item.Id == departmentId)
+            .IgnoreQueryFilters()
+            .Where(item => item.Id == departmentId && item.DeletedAt == null)
             .Select(item => new DepartmentDetailsDto(
                 item.Id.Value,
                 item.ParentId == null ? null : item.ParentId.Value,

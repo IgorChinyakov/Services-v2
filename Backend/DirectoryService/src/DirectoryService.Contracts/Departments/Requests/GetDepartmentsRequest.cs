@@ -12,4 +12,5 @@ public sealed record GetDepartmentsRequest(
     Guid? ParentId = null,
     Guid[]? LocationIds = null,
     Guid[]? ExcludeIds = null,
-    Guid? ExcludeSubtreeOf = null);
+    Guid? ExcludeSubtreeOf = null,
+    bool? IsArchived = null);

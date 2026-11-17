@@ -4,6 +4,30 @@ namespace DirectoryService.Domain.Errors;
 
 public static class DepartmentErrors
 {
+    public static Error ActivityArchived() =>
+        Error.Conflict("department.activity.archived", "Restore the archived department before changing its activity.");
+
+    public static Error ActivityHasActiveDescendants() =>
+        Error.Conflict("department.activity.active_descendants", "Deactivate active descendants first.");
+
+    public static Error ActivityParentInactive() =>
+        Error.Conflict("department.activity.parent_inactive", "Activate or restore the parent departments first.");
+
+    public static Error ArchivedNotFound(Guid departmentId) =>
+        Error.NotFound(
+            "department.not_found",
+            $"Archived department with id '{departmentId}' was not found.");
+
+    public static Error RestoreParentDeleted() =>
+        Error.Conflict(
+            "department.restore.parent_deleted",
+            "Restore the parent department first.");
+
+    public static Error RestoreConflict() =>
+        Error.Conflict(
+            "department.restore.conflict",
+            "Department structure changed. Refresh and retry restoring the department.");
+
     public static Error NotFound(Guid? departmentId = null, string? invalidField = null)
     {
         var message = departmentId is null

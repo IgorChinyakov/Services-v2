@@ -53,7 +53,9 @@ public sealed class GetLocationByIdHandler
                 },
                 item.IsActive,
                 item.CreatedAt,
-                item.UpdatedAt))
+                item.UpdatedAt,
+                item.DepartmentLocations.LongCount(link => link.Department.IsActive),
+                item.DeletedAt))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (location is null)

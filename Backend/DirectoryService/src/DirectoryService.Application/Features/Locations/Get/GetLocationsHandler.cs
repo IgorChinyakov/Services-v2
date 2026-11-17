@@ -51,11 +51,12 @@ public class GetLocationsHandler : IQueryHandler<GetLocationsQuery, PagedList<Lo
         var search = query.Search?.Trim().ToLowerInvariant() ?? string.Empty;
 
         string cacheKey =
-            $"locations:page={query.Page}:size={query.PageSize}" +
+            $"locations:v2:page={query.Page}:size={query.PageSize}" +
             $":search={search}" +
             $":sort={query.SortBy}:direction={query.SortDirection}" +
             $":department={departmentsHash}" +
-            $":minDepartmentCount={query.MinDepartmentCount?.ToString() ?? "none"}";
+            $":minDepartmentCount={query.MinDepartmentCount?.ToString() ?? "none"}" +
+            $":archived={query.IsArchived}";
 
         PagedList<LocationListItemDto>? locationPagedList;
         var loadedFromDatabase = false;

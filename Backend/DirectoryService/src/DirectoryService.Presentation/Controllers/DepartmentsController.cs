@@ -1,6 +1,7 @@
 using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Departments.AddLocation;
 using DirectoryService.Application.Features.Departments.AddPosition;
+using DirectoryService.Application.Features.Departments.Bulk;
 using DirectoryService.Application.Features.Departments.Create;
 using DirectoryService.Application.Features.Departments.Get;
 using DirectoryService.Application.Features.Departments.GetAncestors;
@@ -10,9 +11,11 @@ using DirectoryService.Application.Features.Departments.GetTopByPositions;
 using DirectoryService.Application.Features.Departments.GetTree;
 using DirectoryService.Application.Features.Departments.RemoveLocation;
 using DirectoryService.Application.Features.Departments.RemovePosition;
+using DirectoryService.Application.Features.Departments.Restore;
 using DirectoryService.Application.Features.Departments.SearchTree;
 using DirectoryService.Application.Features.Departments.SoftDelete;
 using DirectoryService.Application.Features.Departments.Update;
+using DirectoryService.Application.Features.Departments.UpdateActivity;
 using DirectoryService.Application.Features.Departments.UpdateLocations;
 using DirectoryService.Application.Features.Departments.UpdateParent;
 using DirectoryService.Contracts.Common;
@@ -203,7 +206,8 @@ public sealed class DepartmentsController : ControllerBase
             request.ParentId,
             request.LocationIds,
             request.ExcludeIds,
-            request.ExcludeSubtreeOf);
+            request.ExcludeSubtreeOf,
+            request.IsArchived);
 
         return await handler.HandleAsync(query, cancellationToken);
     }
@@ -376,6 +380,76 @@ public sealed class DepartmentsController : ControllerBase
         var result = await handler.Handle(command, cancellationToken);
 
         return result;
+    }
+
+    [HttpPost("bulk/archive")]
+    [ProducesResponseType<Envelope<BulkDepartmentResultDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<BulkDepartmentResultDto>> BulkArchiveAsync(
+        [FromBody] BulkDepartmentRequest request,
+        [FromServices] ICommandHandler<BulkDepartmentCommand, BulkDepartmentResultDto> handler,
+        CancellationToken cancellationToken)
+    {
+        return await handler.Handle(
+            new BulkDepartmentCommand(request.Ids, DepartmentBulkAction.Archive), cancellationToken);
+    }
+
+    [HttpPost("bulk/restore")]
+    [ProducesResponseType<Envelope<BulkDepartmentResultDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<BulkDepartmentResultDto>> BulkRestoreAsync(
+        [FromBody] BulkDepartmentRequest request,
+        [FromServices] ICommandHandler<BulkDepartmentCommand, BulkDepartmentResultDto> handler,
+        CancellationToken cancellationToken)
+    {
+        return await handler.Handle(
+            new BulkDepartmentCommand(request.Ids, DepartmentBulkAction.Restore), cancellationToken);
+    }
+
+    [HttpPatch("bulk/activity")]
+    [ProducesResponseType<Envelope<BulkDepartmentResultDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<BulkDepartmentResultDto>> BulkActivityAsync(
+        [FromBody] BulkDepartmentActivityRequest request,
+        [FromServices] ICommandHandler<BulkDepartmentCommand, BulkDepartmentResultDto> handler,
+        CancellationToken cancellationToken)
+    {
+        return await handler.Handle(
+            new BulkDepartmentCommand(request.Ids, DepartmentBulkAction.Activity, request.IsActive),
+            cancellationToken);
+    }
+
+    [HttpPatch("{departmentId:guid}/activity")]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> UpdateActivityAsync(
+        Guid departmentId,
+        [FromBody] UpdateDepartmentActivityRequest request,
+        [FromServices] ICommandHandler<UpdateDepartmentActivityCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        return await handler.Handle(
+            new UpdateDepartmentActivityCommand(departmentId, request.IsActive!.Value), cancellationToken);
+    }
+
+    [HttpPatch("{departmentId:guid}/restore")]
+    [ProducesResponseType<Envelope>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult> RestoreAsync(
+        Guid departmentId,
+        [FromServices] ICommandHandler<RestoreDepartmentCommand> handler,
+        CancellationToken cancellationToken)
+    {
+        return await handler.Handle(new RestoreDepartmentCommand(departmentId), cancellationToken);
     }
 
     [HttpDelete("{departmentId:guid}")]

@@ -2,6 +2,7 @@ using DirectoryService.Application.Abstractions.Handlers;
 using DirectoryService.Application.Features.Positions.Create;
 using DirectoryService.Application.Features.Positions.Delete;
 using DirectoryService.Application.Features.Positions.Get;
+using DirectoryService.Application.Features.Positions.GetById;
 using DirectoryService.Application.Features.Positions.Update;
 using DirectoryService.Contracts.Positions;
 using DirectoryService.Contracts.Positions.Requests;
@@ -34,6 +35,19 @@ public sealed class PositionsController : ControllerBase
         var query = new GetPositionsQuery(request.Cursor, request.Size, request.DepartmentId);
 
         return await handler.HandleAsync(query, cancellationToken);
+    }
+
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType<Envelope<PositionListItemDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(Envelope), StatusCodes.Status500InternalServerError)]
+    public async Task<EndpointResult<PositionListItemDto>> GetByIdAsync(
+        Guid id,
+        [FromServices] IQueryHandler<GetPositionByIdQuery, PositionListItemDto> handler,
+        CancellationToken cancellationToken)
+    {
+        return await handler.HandleAsync(new GetPositionByIdQuery(id), cancellationToken);
     }
 
     [HttpPost]

@@ -488,7 +488,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
                     select d.id as "Value"
                     from departments d
                     where d.id = {departmentId.Value} and
-                          d.is_active = true
+                          d.deleted_at is null
                     for update
                  """).SingleOrDefaultAsync(cancellationToken);
 
@@ -501,8 +501,8 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 return DepartmentErrors.NotFound(departmentId.Value, nameof(departmentId));
             }
 
-            var lockedDepartment = await _dbContext.Departments
-                .FirstOrDefaultAsync(d => d.Id == departmentId && d.IsActive, cancellationToken);
+            var lockedDepartment = await _dbContext.Departments.IgnoreQueryFilters()
+                .FirstOrDefaultAsync(d => d.Id == departmentId && d.DeletedAt == null, cancellationToken);
 
             if (lockedDepartment is null)
             {
@@ -647,6 +647,182 @@ public sealed class DepartmentRepository : IDepartmentRepository
                 return rollbackResult.Error;
 
             return DatabaseErrors.OperationFailed("soft delete department");
+        }
+    }
+
+    public async Task<UnitResult<Error>> UpdateActivityAsync(
+        DepartmentId departmentId,
+        bool isActive,
+        CancellationToken cancellationToken)
+    {
+        var transactionResult = await _transactionManager.BeginTransactionAsync(cancellationToken);
+        if (transactionResult.IsFailure)
+            return transactionResult.Error;
+
+        await using var transaction = transactionResult.Value;
+        try
+        {
+            // Serialize activity checks and updates while allowing concurrent reads.
+            await _dbContext.Database.ExecuteSqlRawAsync(
+                "LOCK TABLE departments IN SHARE ROW EXCLUSIVE MODE", cancellationToken);
+
+            var department = await _dbContext.Departments.IgnoreQueryFilters().AsNoTracking()
+                .SingleOrDefaultAsync(item => item.Id == departmentId, cancellationToken);
+            if (department is null)
+                return DepartmentErrors.NotFound(departmentId.Value);
+            if (department.DeletedAt is not null)
+                return DepartmentErrors.ActivityArchived();
+
+            if (department.IsActive != isActive)
+            {
+                var blocked = isActive
+                    ? await _dbContext.Database.SqlQuery<bool>($"""
+                        SELECT EXISTS (
+                            SELECT 1 FROM departments
+                            WHERE path @> {department.Path}::ltree AND id <> {departmentId.Value}
+                              AND (is_active = FALSE OR deleted_at IS NOT NULL)
+                        ) AS "Value"
+                        """).SingleAsync(cancellationToken)
+                    : await _dbContext.Database.SqlQuery<bool>($"""
+                        SELECT EXISTS (
+                            SELECT 1 FROM departments
+                            WHERE path <@ {department.Path}::ltree AND id <> {departmentId.Value}
+                              AND is_active = TRUE AND deleted_at IS NULL
+                        ) AS "Value"
+                        """).SingleAsync(cancellationToken);
+                if (blocked)
+                {
+                    return isActive
+                        ? DepartmentErrors.ActivityParentInactive()
+                        : DepartmentErrors.ActivityHasActiveDescendants();
+                }
+
+                await _dbContext.Departments.IgnoreQueryFilters()
+                    .Where(item => item.Id == departmentId)
+                    .ExecuteUpdateAsync(
+                        setters => setters
+                            .SetProperty(item => item.IsActive, isActive)
+                            .SetProperty(item => item.UpdatedAt, DateTime.UtcNow),
+                        cancellationToken);
+            }
+
+            return await transaction.CommitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to change department activity. DepartmentId {DepartmentId}",
+                departmentId.Value);
+            return DatabaseErrors.OperationFailed("change department activity");
+        }
+    }
+
+    public async Task<Result<DateTime, Error>> RestoreAsync(
+        DepartmentId departmentId,
+        CancellationToken cancellationToken)
+    {
+        var transactionResult = await _transactionManager.BeginTransactionAsync(cancellationToken);
+        if (transactionResult.IsFailure)
+            return transactionResult.Error;
+
+        await using var transaction = transactionResult.Value;
+
+        try
+        {
+            var snapshot = await _dbContext.Departments.IgnoreQueryFilters().AsNoTracking()
+                .Where(department => department.Id == departmentId)
+                .Select(department => new { department.ParentId })
+                .SingleOrDefaultAsync(cancellationToken);
+            if (snapshot is null)
+                return DepartmentErrors.ArchivedNotFound(departmentId.Value);
+
+            Guid[] idsToLock = snapshot.ParentId is null
+                ? [departmentId.Value]
+                : [departmentId.Value, snapshot.ParentId.Value];
+
+            var lockedDepartments = await _dbContext.Database.SqlQuery<DepartmentMoveInfo>(
+                $"""
+                 SELECT id AS "Id", parent_id AS "ParentId", slug AS "Slug",
+                        path::text AS "Path", depth AS "Depth", is_active AS "IsActive",
+                        updated_at AS "UpdatedAt", deleted_at AS "DeletedAt"
+                 FROM departments
+                 WHERE id = ANY({idsToLock})
+                 ORDER BY id
+                 FOR UPDATE
+                 """).ToListAsync(cancellationToken);
+
+            var department = lockedDepartments.SingleOrDefault(item => item.Id == departmentId.Value);
+            if (department is null || department.IsActive || department.DeletedAt is null)
+                return DepartmentErrors.ArchivedNotFound(departmentId.Value);
+            if (department.ParentId != snapshot.ParentId?.Value)
+                return DepartmentErrors.RestoreConflict();
+
+            var parent = department.ParentId is { } parentId
+                ? lockedDepartments.SingleOrDefault(item => item.Id == parentId)
+                : null;
+            if (department.ParentId is not null &&
+                (parent is null || !parent.IsActive || parent.DeletedAt is not null))
+                return DepartmentErrors.RestoreParentDeleted();
+
+            var oldPath = department.Path;
+            var newPath = parent is null ? department.Slug : $"{parent.Path}.{department.Slug}";
+            var depthDelta = (parent is null ? 0 : parent.Depth + 1) - department.Depth;
+            var updatedAt = DateTime.UtcNow;
+
+            // Lock archived descendants too: restoring a parent also rewrites their path prefix.
+            _ = await _dbContext.Database.SqlQuery<Guid>(
+                $"""
+                 SELECT id AS "Value" FROM departments
+                 WHERE path <@ {oldPath}::ltree
+                 ORDER BY id
+                 FOR UPDATE
+                 """).ToListAsync(cancellationToken);
+
+            await _dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"""
+                 UPDATE departments
+                 SET path = CASE
+                         WHEN id = {departmentId.Value} THEN {newPath}::ltree
+                         ELSE {newPath}::ltree || subpath(path, nlevel({oldPath}::ltree))
+                     END,
+                     depth = (depth + {depthDelta})::smallint,
+                     is_active = CASE WHEN id = {departmentId.Value} THEN TRUE ELSE is_active END,
+                     deleted_at = CASE WHEN id = {departmentId.Value} THEN NULL ELSE deleted_at END,
+                     updated_at = {updatedAt}
+                 WHERE path <@ {oldPath}::ltree
+                 """, cancellationToken);
+
+            var commitResult = await transaction.CommitAsync(cancellationToken);
+            if (commitResult.IsFailure)
+                return commitResult.Error;
+
+            return updatedAt;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            var rollbackResult = await transaction.RollbackAsync(cancellationToken);
+            if (rollbackResult.IsFailure)
+                return rollbackResult.Error;
+
+            if (exception is PostgresException postgresException)
+            {
+                if (postgresException.SqlState == PostgresErrorCodes.UniqueViolation)
+                    return DepartmentErrors.PathDuplicate();
+                if (IsMoveConflict(postgresException))
+                    return DepartmentErrors.RestoreConflict();
+            }
+
+            _logger.LogError(
+                exception,
+                "Failed to restore department. DepartmentId {DepartmentId}", departmentId.Value);
+            return DatabaseErrors.OperationFailed("restore department");
         }
     }
 

@@ -101,7 +101,7 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
         var filtersSql = BuildFiltersSql(query, parameters);
 
         parameters.Add("MinDepartmentCount", query.MinDepartmentCount, DbType.Int32);
-        parameters.Add("IsActive", true, DbType.Boolean);
+        parameters.Add("IsActive", !query.IsArchived, DbType.Boolean);
         parameters.Add("PageSize", query.PageSize, DbType.Int32);
         parameters.Add("Offset", (query.Page - 1) * query.PageSize, DbType.Int32);
 
@@ -112,13 +112,14 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
             _logger.LogInformation(
                 "Loading locations from database. Page: {Page}, PageSize: {PageSize}, " +
                 "Search: {Search}, DepartmentIdsCount: {DepartmentIdsCount}, " +
-                "MinDepartmentCount: {MinDepartmentCount}, " +
+                "MinDepartmentCount: {MinDepartmentCount}, IsArchived: {IsArchived}, " +
                 "SortBy: {SortBy}, SortDirection: {SortDirection}",
                 query.Page,
                 query.PageSize,
                 query.Search,
                 query.DepartmentIds?.Length ?? 0,
                 query.MinDepartmentCount,
+                query.IsArchived,
                 query.SortBy,
                 query.SortDirection);
 
@@ -199,6 +200,9 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
         }
 
         filtersSql.AppendLine("and l.is_active = @IsActive");
+        filtersSql.AppendLine(query.IsArchived
+            ? "and l.deleted_at is not null"
+            : "and l.deleted_at is null");
 
         return filtersSql.ToString();
     }
@@ -237,6 +241,7 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                         l.name,
                         l.is_active,
                         l.created_at,
+                        l.deleted_at,
                         l.city,
                         l.street,
                         l.house,
@@ -253,6 +258,7 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                         l.name,
                         l.is_active,
                         l.created_at,
+                        l.deleted_at,
                         l.city,
                         l.street,
                         l.house,
@@ -278,6 +284,7 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                     pl.name as Name,
                     pl.is_active as IsActive,
                     pl.created_at as CreatedAt,
+                    pl.deleted_at as DeletedAt,
                     pl.department_count as DepartmentCount,
                     pl.city as City,
                     pl.street as Street,
@@ -321,7 +328,8 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
                 },
                 row.IsActive!.Value,
                 row.CreatedAt!.Value,
-                row.DepartmentCount!.Value))
+                row.DepartmentCount!.Value,
+                row.DeletedAt))
             .ToList();
 
         return (locations, totalCount);
@@ -332,6 +340,7 @@ public sealed class LocationQueryRepository : ILocationQueryRepository
         string? Name,
         bool? IsActive,
         DateTime? CreatedAt,
+        DateTime? DeletedAt,
         long? DepartmentCount,
         string? City,
         string? Street,

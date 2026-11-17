@@ -18,6 +18,10 @@ public interface ILocationRepository
         LocationId locationId,
         CancellationToken cancellationToken);
 
+    Task<Result<Location, Error>> GetArchivedByIdAsync(
+        LocationId locationId,
+        CancellationToken cancellationToken);
+
     Task<Result<Location, Error>> AddAsync(Location location, CancellationToken cancellationToken);
 
     UnitResult<Error> Delete(Location location);
