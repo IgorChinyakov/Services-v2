@@ -10,6 +10,7 @@ export const fetchDepartments = ({
   excludeIds = null,
   excludeSubtreeOf = null,
   isActive = null,
+  isArchived = null,
 }: {
   signal: AbortSignal;
   page: number;
@@ -19,6 +20,7 @@ export const fetchDepartments = ({
   excludeIds?: string[] | null;
   excludeSubtreeOf?: string | null;
   isActive?: boolean | null;
+  isArchived?: boolean | null;
 }): Promise<DepartmentsPagedResultDto> =>
   GetResult<DepartmentsPagedResultDto>({
     url: "departments/",
@@ -31,5 +33,6 @@ export const fetchDepartments = ({
       excludeIds,
       excludeSubtreeOf,
       isActive: isActive === null ? null : String(isActive),
+      isArchived,
     },
   });

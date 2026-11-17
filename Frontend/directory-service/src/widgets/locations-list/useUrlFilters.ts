@@ -1,7 +1,7 @@
 import type { DepartmentListItemDto } from "@/entities/department";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-export function useUrlDepartmentsFilters() {
+export function useUrlFilters() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -20,7 +20,22 @@ export function useUrlDepartmentsFilters() {
         params.delete("departmentIds");
       }
 
-      params.delete("page"); // при смене фильтра вернуться на первую страницу
+      router.replace(`${pathname}?${params.toString()}`);
+
+      setPage(1);
+    },
+    handleIsArchivedChange: (
+      isArchived: boolean,
+      setPage: (page: number) => void,
+    ) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      if (isArchived === true) {
+        params.set("isArchived", isArchived.toString());
+      } else {
+        params.delete("isArchived");
+      }
+
       router.replace(`${pathname}?${params.toString()}`);
 
       setPage(1);
@@ -30,5 +45,6 @@ export function useUrlDepartmentsFilters() {
         (searchParams.get("departmentIds") ?? "").split(",").filter(Boolean),
       ),
     ],
+    urlIsArchived: searchParams.get("isArchived"),
   };
 }

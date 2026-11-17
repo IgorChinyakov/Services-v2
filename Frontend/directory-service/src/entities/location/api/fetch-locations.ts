@@ -7,6 +7,7 @@ export const fetchLocations = async (
   page: number,
   search: string | null = null,
   departmentIds: string[] | null = null,
+  isArchived: boolean = false,
 ): Promise<LocationsPagedResultDto> => {
   return await GetResult<LocationsPagedResultDto>({
     url: "locations",
@@ -16,6 +17,7 @@ export const fetchLocations = async (
       page,
       search,
       departmentIds,
+      isArchived,
     },
   });
 };

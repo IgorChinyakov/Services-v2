@@ -1,4 +1,5 @@
 import { LocationsList } from "@/widgets/locations-list";
+import { FocusedLocation } from "@/widgets/focused-location";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
@@ -6,7 +7,13 @@ export const metadata: Metadata = {
   title: "Locations | Directory Service",
 };
 
-export default function Locations() {
+export default async function Locations({
+  searchParams,
+}: {
+  searchParams: Promise<{ focusId?: string | string[] }>;
+}) {
+  const { focusId } = await searchParams;
+  const locationId = Array.isArray(focusId) ? focusId[0] : focusId;
   return (
     <Suspense
       fallback={
@@ -15,7 +22,11 @@ export default function Locations() {
         </div>
       }
     >
-      <LocationsList />
+      <LocationsList
+        focusedLocation={
+          locationId ? <FocusedLocation locationId={locationId} /> : null
+        }
+      />
     </Suspense>
   );
 }

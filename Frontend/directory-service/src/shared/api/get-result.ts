@@ -4,7 +4,7 @@ import { Envelope } from "./envelope";
 import { ApiRequestError } from "./error";
 import ExportData from "./get-repsonse-data-helper";
 
-type QueryParams = Record<string, string | string[] | number | null>;
+type QueryParams = Record<string, string | string[] | number | boolean | null>;
 
 export type GetResultProps = {
   url: string;

@@ -9,6 +9,7 @@ export const departmentListQueryOptions = ({
   excludeIds = null,
   excludeSubtreeOf = null,
   isActive = null,
+  isArchived = null,
 }: {
   page: number;
   pageSize: number;
@@ -17,6 +18,7 @@ export const departmentListQueryOptions = ({
   excludeIds?: string[] | null;
   excludeSubtreeOf?: string | null;
   isActive?: boolean | null;
+  isArchived?: boolean | null;
 }) =>
   queryOptions({
     queryKey: [
@@ -30,6 +32,7 @@ export const departmentListQueryOptions = ({
         excludeIds,
         excludeSubtreeOf,
         isActive,
+        isArchived,
       },
     ] as const,
     queryFn: ({ signal }) =>
@@ -42,5 +45,6 @@ export const departmentListQueryOptions = ({
         excludeIds,
         excludeSubtreeOf,
         isActive,
+        isArchived,
       }),
   });

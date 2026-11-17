@@ -4,6 +4,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { Spinner } from "@/shared/ui/spinner";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, ChevronRight, TriangleAlert } from "lucide-react";
+import { DepartmentMoveLink } from "./department-move-link";
 import { useDepartmentTreeStore } from "./store/department-tree-store";
 
 export function DepartmentChildren({ departmentId }: { departmentId: string }) {
@@ -124,6 +125,7 @@ export function DepartmentChildren({ departmentId }: { departmentId: string }) {
                     {child.name}
                   </span>
                 </button>
+                <DepartmentMoveLink id={child.id} name={child.name} />
               </div>
               {isExpanded && (
                 <div className="ml-7 border-l py-2 pl-3">

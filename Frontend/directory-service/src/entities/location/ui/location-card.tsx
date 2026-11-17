@@ -34,6 +34,16 @@ export default function LocationCard({
       }).format(new Date(dto.createdAt))
     : "Дата не указана";
 
+  const deletedAt =
+    dto.deletedAt !== null
+      ? new Intl.DateTimeFormat("ru-RU", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+          timeZone: "UTC",
+        }).format(new Date(dto.deletedAt))
+      : null;
+
   return (
     <Card className="group relative min-h-72 overflow-hidden border-0 bg-linear-to-br from-card via-card to-emerald-50/70 shadow-sm ring-1 ring-foreground/10 transition duration-300 hover:-translate-y-1 hover:shadow-lg dark:to-emerald-950/20">
       <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-emerald-500 via-teal-400 to-transparent" />
@@ -86,7 +96,7 @@ export default function LocationCard({
       <CardFooter className="flex flex-wrap items-center justify-between gap-3 border-t-0 bg-transparent pt-0 text-xs text-muted-foreground">
         <span className="flex items-center gap-2">
           <CalendarDays className="size-4" />
-          Создана {createdAt}
+          {deletedAt !== null ? `Удалена ${deletedAt}` : `Создана ${createdAt}`}
         </span>
         {actions}
       </CardFooter>

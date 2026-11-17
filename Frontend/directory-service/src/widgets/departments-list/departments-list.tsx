@@ -6,8 +6,9 @@ import {
 } from "@/entities/department";
 import { Button, buttonVariants } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { Checkbox } from "@/shared/ui/checkbox";
 import PaginationControls from "@/shared/ui/pagination-controls";
-import { useQuery } from "@tanstack/react-query";
+import { useIsMutating, useQuery } from "@tanstack/react-query";
 import {
   Building2,
   CircleAlert,
@@ -16,13 +17,36 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import LocationMultiSelect from "./location-multi-select";
 import Link from "next/link";
+import { Archive } from "lucide-react";
+import DepartmentArchiveDialog from "@/features/archive-department/department-archive-dialog";
+import { useDepartmentArchiveView } from "@/features/archive-department/use-department-archive-view";
+import ToggleDepartmentActivity from "@/features/toggle-department-activity/toggle-department-activity";
+import DepartmentSelection from "@/features/department-selection/department-selection";
+import { DepartmentBulkActionBar } from "@/features/bulk-departments";
+import { useSelectedDepartmentsStore } from "@/features/department-selection/store/selected-departments-store";
 
-export default function DepartmentsList() {
+export default function DepartmentsList({
+  focusedDepartment = null,
+}: {
+  focusedDepartment?: ReactNode;
+}) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const { isArchived, changeArchiveView } = useDepartmentArchiveView();
+  const isBulkPending =
+    useIsMutating({ mutationKey: ["departments", "bulk"] }) > 0;
+
+  const controllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+    };
+  }, []);
 
   const [filters, setFilters] = useState({
     search: "",
@@ -31,12 +55,23 @@ export default function DepartmentsList() {
 
   const [locationIds, setLocationIds] = useState<string[]>([]);
 
+  const selectedIds = useSelectedDepartmentsStore((state) => state.selectedIds);
+
+  const clearSelection = useSelectedDepartmentsStore(
+    (state) => state.clearSelecteion,
+  );
+
+  const setSelectedIds = useSelectedDepartmentsStore(
+    (state) => state.setSelectedIds,
+  );
+
   const departmentsQuery = useQuery(
     departmentListQueryOptions({
       page,
       pageSize: 20,
       search: filters.search,
       locationIds: filters.locationIds,
+      isArchived,
     }),
   );
   const totalPages = departmentsQuery.data?.totalPages;
@@ -44,6 +79,10 @@ export default function DepartmentsList() {
   if (totalPages !== undefined && page > Math.max(1, totalPages)) {
     setPage(Math.max(1, totalPages));
   }
+
+  useEffect(() => {
+    clearSelection();
+  }, [isArchived, page, search, filters, locationIds, clearSelection]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -56,6 +95,19 @@ export default function DepartmentsList() {
 
     return () => window.clearTimeout(timer);
   }, [search, locationIds]);
+
+  const handleCheckedAll = (nextIsCheckedAll: boolean) => {
+    setSelectedIds(
+      nextIsCheckedAll === false ? [] : pageItems.map((i) => i.id),
+    );
+  };
+
+  const pageItems = departmentsQuery.data?.items ?? [];
+
+  const isAllChecked =
+    pageItems.length > 0 && pageItems.every((i) => selectedIds.includes(i.id));
+
+  const isSomeChecked = pageItems.some((i) => selectedIds.includes(i.id));
 
   return (
     <section className="mx-auto w-full max-w-7xl space-y-7">
@@ -79,6 +131,44 @@ export default function DepartmentsList() {
           </div>
         )}
       </header>
+
+      {focusedDepartment}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-muted-foreground">
+          Показывать подразделения
+        </p>
+        <div
+          role="group"
+          aria-label="Режим просмотра подразделений"
+          className="grid grid-cols-2 gap-1 rounded-xl border bg-muted/60 p-1"
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            aria-pressed={!isArchived}
+            className="gap-2 rounded-lg px-5 aria-pressed:bg-background aria-pressed:text-sky-700 aria-pressed:shadow-sm dark:aria-pressed:text-sky-400"
+            onClick={() => {
+              changeArchiveView(false);
+              setPage(1);
+            }}
+          >
+            <Building2 className="size-4" aria-hidden="true" /> Не в архиве
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-pressed={isArchived}
+            className="gap-2 rounded-lg px-5 aria-pressed:bg-background aria-pressed:text-amber-700 aria-pressed:shadow-sm dark:aria-pressed:text-amber-400"
+            onClick={() => {
+              changeArchiveView(true);
+              setPage(1);
+            }}
+          >
+            <Archive className="size-4" aria-hidden="true" /> Архивные
+          </Button>
+        </div>
+      </div>
 
       <div
         role="search"
@@ -120,6 +210,24 @@ export default function DepartmentsList() {
           </div>
         </div>
       </div>
+
+      {selectedIds.length > 0 && (
+        <>
+          <DepartmentBulkActionBar
+            selectedIds={selectedIds}
+            isArchived={isArchived}
+            onClearSelection={clearSelection}
+            onSucceeded={(ids) => {
+              const succeededIds = new Set(ids);
+              useSelectedDepartmentsStore.setState((state) => ({
+                selectedIds: state.selectedIds.filter(
+                  (id) => !succeededIds.has(id),
+                ),
+              }));
+            }}
+          ></DepartmentBulkActionBar>
+        </>
+      )}
 
       {departmentsQuery.isLoading && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -164,9 +272,19 @@ export default function DepartmentsList() {
             <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-background shadow-sm ring-1 ring-foreground/10">
               <Building2 className="size-6 text-muted-foreground" />
             </div>
-            <h2 className="text-lg font-semibold">Подразделений пока нет</h2>
+            <h2 className="text-lg font-semibold">
+              {filters.search || filters.locationIds.length > 0
+                ? "Подразделения не найдены"
+                : isArchived
+                  ? "Архив пуст"
+                  : "Подразделений пока нет"}
+            </h2>
             <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-              Когда в справочник добавят отделы, они появятся здесь.
+              {filters.search || filters.locationIds.length > 0
+                ? "Попробуй изменить поисковую строку или выбранные локации."
+                : isArchived
+                  ? "Здесь появятся подразделения, перемещённые в архив."
+                  : "Когда в справочник добавят отделы, они появятся здесь."}
             </p>
           </div>
         )}
@@ -176,22 +294,69 @@ export default function DepartmentsList() {
         departmentsQuery.data !== undefined &&
         departmentsQuery.data.items.length > 0 && (
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="col-span-full flex items-center gap-3 rounded-xl border border-sky-200/70 bg-sky-50/40 px-4 py-3 dark:border-sky-900 dark:bg-sky-950/20">
+              <Checkbox
+                id="select-all-departments"
+                checked={isAllChecked}
+                indeterminate={!isAllChecked && isSomeChecked}
+                disabled={isBulkPending}
+                onCheckedChange={(nextIsCheckedAll) =>
+                  handleCheckedAll(nextIsCheckedAll)
+                }
+                aria-describedby="select-all-departments-description"
+                className="size-5 rounded-md border-sky-300 focus-visible:ring-sky-400/30 dark:border-sky-700"
+              />
+              <div className="min-w-0">
+                <label
+                  htmlFor="select-all-departments"
+                  className="cursor-pointer text-sm font-medium"
+                >
+                  Выбрать все на странице
+                </label>
+                <p
+                  id="select-all-departments-description"
+                  className="mt-0.5 text-xs leading-relaxed text-muted-foreground"
+                >
+                  Только карточки ниже, без отдельной найденной записи.
+                </p>
+              </div>
+            </div>
             {departmentsQuery.data.items.map((department) => (
               <DepartmentCard
                 dto={department}
                 key={department.id}
+                selection={
+                  <DepartmentSelection
+                    departmentId={department.id}
+                    departmentName={department.name}
+                    disabled={isBulkPending}
+                  />
+                }
                 actions={
-                  // TODO: Replace with navigation to /departments/[id] when the detail page is ready.
-                  <Link
-                    href={`/departments/${department.id}`}
-                    className={buttonVariants({
-                      variant: "outline",
-                      size: "sm",
-                    })}
-                  >
-                    <Pencil data-icon="inline-start" />
-                    Редактировать
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {!isArchived && (
+                      <Link
+                        href={`/departments/${department.id}`}
+                        className={buttonVariants({
+                          variant: "outline",
+                          size: "sm",
+                        })}
+                      >
+                        <Pencil data-icon="inline-start" />
+                        Редактировать
+                      </Link>
+                    )}
+                    <DepartmentArchiveDialog
+                      department={department}
+                      action={isArchived ? "restore" : "archive"}
+                    />
+                    {!isArchived && (
+                      <ToggleDepartmentActivity
+                        departmentId={department.id}
+                        isActive={department.isActive}
+                      />
+                    )}
+                  </div>
                 }
               />
             ))}

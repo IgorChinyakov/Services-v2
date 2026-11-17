@@ -17,6 +17,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { DepartmentChildren } from "./department-children";
+import { DepartmentMoveLink } from "./department-move-link";
 import { useDepartmentTreeStore } from "./store/department-tree-store";
 
 export default function DepartmentTree() {
@@ -148,6 +149,7 @@ export default function DepartmentTree() {
                         {node.name}
                       </span>
                     </button>
+                    <DepartmentMoveLink id={node.id} name={node.name} />
                   </div>
                   {isExpanded && (
                     <div className="ml-9 border-l py-2 pl-3">

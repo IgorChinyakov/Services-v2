@@ -14,6 +14,11 @@ export type LocationDto = {
   isActive: boolean;
   createdAt: string;
   departmentCount: number;
+  deletedAt: string | null;
 };
 
 export type LocationsPagedResultDto = PagedResult<LocationDto>;
+
+export type LocationDetailsDto = LocationDto & {
+  updatedAt: string;
+};

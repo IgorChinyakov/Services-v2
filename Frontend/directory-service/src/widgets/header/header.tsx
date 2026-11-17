@@ -1,3 +1,4 @@
+import { GlobalSearch } from "@/features/global-search";
 import { Menu, X } from "lucide-react";
 
 type HeaderProps = {
@@ -25,7 +26,8 @@ export function Header({
           <Menu className="size-5" />
         )}
       </button>
-      <h1 className="text-lg font-semibold">{title}</h1>
+      <h1 className="min-w-0 truncate text-lg font-semibold">{title}</h1>
+      <GlobalSearch />
     </header>
   );
 }

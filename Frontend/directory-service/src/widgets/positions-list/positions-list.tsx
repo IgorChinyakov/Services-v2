@@ -10,9 +10,13 @@ import {
   CircleAlert,
   RefreshCw,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
-export default function PositionsList() {
+export default function PositionsList({
+  focusedPosition,
+}: {
+  focusedPosition?: ReactNode;
+}) {
   const positionsQuery = useInfiniteQuery(positionListQueryOptions());
   const positions =
     positionsQuery.data?.pages.flatMap((page) => page.items) ?? [];
@@ -64,6 +68,8 @@ export default function PositionsList() {
           </div>
         )}
       </header>
+
+      {focusedPosition}
 
       {/* Пока первая страница загружается, показываем карточки-заглушки. */}
       {positionsQuery.isPending && (

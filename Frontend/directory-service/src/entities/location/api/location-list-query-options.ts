@@ -6,9 +6,17 @@ export const locationListQueryOptions = (
   pageSize: number,
   search: string | null = null,
   departmentIds: string[] | null = null,
+  isArchived: boolean = false,
 ) =>
   queryOptions({
-    queryKey: ["locations", pageSize, page, search, departmentIds] as const,
+    queryKey: [
+      "locations",
+      pageSize,
+      page,
+      search,
+      departmentIds,
+      isArchived,
+    ] as const,
     queryFn: ({ signal }) =>
-      fetchLocations(signal, pageSize, page, search, departmentIds),
+      fetchLocations(signal, pageSize, page, search, departmentIds, isArchived),
   });

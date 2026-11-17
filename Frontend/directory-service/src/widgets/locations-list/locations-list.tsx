@@ -7,15 +7,22 @@ import DeleteLocationDialog from "@/features/delete-location/delete-location-dia
 import DepartmentSelect from "@/features/department-select/department-select";
 import { Button } from "@/shared/ui/button";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Building2, CircleAlert, MapPinned, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import {
+  Archive,
+  Building2,
+  CircleAlert,
+  MapPinned,
+  RefreshCw,
+} from "lucide-react";
+import { useState, type ReactNode } from "react";
 import PaginationControls from "@/shared/ui/pagination-controls";
 import {
   fetchDepartmentById,
   type DepartmentDetailsDto,
   type DepartmentListItemDto,
 } from "@/entities/department";
-import { useUrlDepartmentsFilters } from "./useUrlDepartmentsFilters";
+import { useUrlFilters } from "./useUrlFilters";
+import RestoreLocationDialog from "@/features/restore-location/restore-location-dialog";
 
 function toListItem(data: DepartmentDetailsDto): DepartmentListItemDto {
   return {
@@ -30,13 +37,23 @@ function toListItem(data: DepartmentDetailsDto): DepartmentListItemDto {
   };
 }
 
-export default function LocationsList() {
+export default function LocationsList({
+  focusedLocation,
+}: {
+  focusedLocation?: ReactNode;
+}) {
   const [page, setPage] = useState(1);
 
   const [departments, setDepartments] = useState<DepartmentListItemDto[]>([]);
 
-  const { urlDepartmentIds, handleDepartmentsChange } =
-    useUrlDepartmentsFilters();
+  const {
+    urlDepartmentIds,
+    urlIsArchived,
+    handleDepartmentsChange,
+    handleIsArchivedChange,
+  } = useUrlFilters();
+
+  const isArchived = urlIsArchived === "true";
 
   const departmentQueries = useQueries({
     queries: urlDepartmentIds.map((id) => ({
@@ -62,7 +79,7 @@ export default function LocationsList() {
   const hasSelectionError = failedDepartmentQueries.length > 0;
 
   const locationsQuery = useQuery(
-    locationListQueryOptions(page, 20, null, urlDepartmentIds),
+    locationListQueryOptions(page, 20, null, urlDepartmentIds, isArchived),
   );
   const totalPages = locationsQuery.data?.totalPages;
 
@@ -105,6 +122,45 @@ export default function LocationsList() {
           )}
         </div>
       </header>
+
+      {focusedLocation}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-medium text-muted-foreground">
+          Показывать локации
+        </p>
+        {/* TODO: Connect the view buttons to isArchived and the URL filters. */}
+        <div
+          role="group"
+          aria-label="Режим просмотра локаций"
+          className="grid grid-cols-2 gap-1 rounded-xl border bg-muted/60 p-1 sm:w-auto"
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            aria-pressed={!isArchived}
+            className="gap-2 rounded-lg px-5 aria-pressed:bg-background aria-pressed:text-emerald-700 aria-pressed:shadow-sm dark:aria-pressed:text-emerald-400"
+            onClick={() => {
+              handleIsArchivedChange(false, setPage);
+            }}
+          >
+            <Building2 aria-hidden="true" className="size-4" />
+            Активные
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            aria-pressed={isArchived}
+            className="gap-2 rounded-lg px-5 aria-pressed:bg-background aria-pressed:text-amber-700 aria-pressed:shadow-sm dark:aria-pressed:text-amber-400"
+            onClick={() => {
+              handleIsArchivedChange(true, setPage);
+            }}
+          >
+            <Archive aria-hidden="true" className="size-4" />
+            Архивные
+          </Button>
+        </div>
+      </div>
 
       <div className="rounded-2xl border bg-linear-to-br from-sky-50/70 via-background to-background p-4 shadow-sm dark:from-sky-950/20 sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
@@ -244,10 +300,14 @@ export default function LocationsList() {
                 key={item.id}
                 dto={item}
                 actions={
-                  <div className="flex flex-wrap items-center gap-1">
-                    <EditLocationDialog location={item} />
-                    <DeleteLocationDialog location={item} />
-                  </div>
+                  !isArchived ? (
+                    <div className="flex flex-wrap items-center gap-1">
+                      <EditLocationDialog location={item} />
+                      <DeleteLocationDialog location={item} />
+                    </div>
+                  ) : (
+                    <RestoreLocationDialog location={item} />
+                  )
                 }
               />
             ))}

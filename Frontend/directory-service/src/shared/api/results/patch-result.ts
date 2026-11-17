@@ -2,7 +2,7 @@ import axios from "axios";
 import { httpClient } from "../axios-client";
 import { Envelope } from "../envelope";
 import { ApiRequestError } from "../error";
-import { ExportDataWithoutResult } from "../get-repsonse-data-helper";
+import ExportData, { ExportDataWithoutResult } from "../get-repsonse-data-helper";
 
 export type PatchResultProps = {
   data: unknown;
@@ -10,7 +10,7 @@ export type PatchResultProps = {
   signal: AbortSignal;
 };
 
-export default async function PatchResult({
+async function sendPatch<T>({
   data,
   url,
   signal,
@@ -18,7 +18,7 @@ export default async function PatchResult({
   let response;
 
   try {
-    response = await httpClient.patch<Envelope<null>>(url, data, { signal });
+    response = await httpClient.patch<Envelope<T>>(url, data, { signal });
   } catch (error) {
     if (axios.isAxiosError<Envelope<unknown>>(error)) {
       const errors = error.response?.data?.errors;
@@ -31,5 +31,15 @@ export default async function PatchResult({
     throw error;
   }
 
+  return response;
+}
+
+export default async function PatchResult(props: PatchResultProps): Promise<void> {
+  const response = await sendPatch<null>(props);
   return ExportDataWithoutResult(response);
+}
+
+export async function PatchResultWithData<T>(props: PatchResultProps): Promise<T> {
+  const response = await sendPatch<T>(props);
+  return ExportData<T>(response);
 }
