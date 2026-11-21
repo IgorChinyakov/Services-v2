@@ -34,4 +34,21 @@ jobs:
 
       - name: Run backend integration tests
         working-directory: Backend/DirectoryService
-        run: dotnet test DirectoryService.sln --configuration Release --no-build
+        run: >-
+          dotnet test DirectoryService.sln
+          --configuration Release
+          --no-build
+          --logger "console;verbosity=detailed"
+          --logger "trx;LogFileName=backend-tests.trx"
+          --results-directory TestResults
+          --diag vstest.log
+
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-test-diagnostics
+          retention-days: 7
+          path: |
+            Backend/DirectoryService/TestResults/
+            Backend/DirectoryService/vstest*.log
