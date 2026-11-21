@@ -15,3 +15,19 @@ jobs:
 
       - name: Show backend files
         run: ls Backend/DirectoryService
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Show .NET info
+        run: dotnet --info
+
+      - name: Restore backend dependencies
+        working-directory: Backend/DirectoryService
+        run: dotnet restore DirectoryService.sln
+
+      - name: Build backend
+        working-directory: Backend/DirectoryService
+        run: dotnet build DirectoryService.sln --configuration Release --no-restore

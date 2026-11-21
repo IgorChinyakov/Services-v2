@@ -1,0 +1,32 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - complementary [ref=f1e3]:
+      - navigation [ref=f1e4]:
+        - link "Локации" [ref=f1e5] [cursor=pointer]:
+          - /url: /locations
+        - link "Подразделения" [ref=f1e6] [cursor=pointer]:
+          - /url: /departments
+        - link "Позиции" [ref=f1e7] [cursor=pointer]:
+          - /url: /positions
+    - generic [ref=f1e8]:
+      - banner [ref=f1e9]:
+        - heading "Directory service" [level=1] [ref=f1e10]
+      - main [ref=f1e11]:
+        - generic [ref=f1e12]:
+          - generic [ref=f1e14]:
+            - generic [ref=f1e15]: Структура компании
+            - heading "Подразделения" [level=1] [ref=f1e21]
+            - paragraph [ref=f1e22]: Отделы и команды компании с их местом в общей структуре.
+          - search [ref=f1e23]:
+            - generic [ref=f1e24]:
+              - generic [ref=f1e25]:
+                - generic [ref=f1e26]: Найти подразделение
+                - searchbox "Найти подразделение" [ref=f1e28]
+              - generic [ref=f1e29]:
+                - generic [ref=f1e30]: Локации
+                - combobox "Локации" [ref=f1e32]
+                - textbox [aria-hidden] [ref=f1e33]
+  - button "Open Next.js Dev Tools" [ref=f1e46] [cursor=pointer]
+  - alert [ref=f1e50]
+  - generic:
+    - region "Notifications"

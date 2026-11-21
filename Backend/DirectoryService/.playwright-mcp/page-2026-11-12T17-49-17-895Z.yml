@@ -1,0 +1,39 @@
+- generic [active] [ref=e1]:
+  - link "Перейти к контенту" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - list [ref=e8]:
+          - listitem [ref=e9]:
+            - link "На главную" [ref=e10] [cursor=pointer]:
+              - /url: /home
+          - listitem [ref=e15]:
+            - button "Свернуть" [ref=e16] [cursor=pointer]
+        - generic [ref=e21]:
+          - heading "Загрузка..." [level=2] [ref=e24]
+          - generic [ref=e25]: Доступ не активирован
+      - list [ref=e33]:
+        - listitem [ref=e34]:
+          - link "Обзор" [ref=e35] [cursor=pointer]:
+            - /url: /courses/dotnet-fullstack
+        - listitem [ref=e43]:
+          - link "Программа" [ref=e44] [cursor=pointer]:
+            - /url: /courses/dotnet-fullstack/program
+        - listitem [ref=e50]:
+          - link "Задания" [ref=e51] [cursor=pointer]:
+            - /url: /courses/dotnet-fullstack/assignments
+        - listitem [ref=e58]:
+          - link "Тесты" [ref=e59] [cursor=pointer]:
+            - /url: /courses/dotnet-fullstack/tests
+        - listitem [ref=e66]:
+          - link "Материалы" [ref=e67] [cursor=pointer]:
+            - /url: /courses/dotnet-fullstack/knowledge-base
+        - listitem [ref=e74]:
+          - button "Закладки" [ref=e75]
+    - main [ref=e83]:
+      - generic [ref=e85]:
+        - link "Моё обучение" [ref=e87] [cursor=pointer]:
+          - /url: /home
+        - button "Тёмная тема — нажмите чтобы переключить на светлую" [ref=e89] [cursor=pointer]
+  - region "Notifications alt+T"

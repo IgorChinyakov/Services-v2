@@ -1,0 +1,41 @@
+- generic [active] [ref=f13e1]:
+  - generic [ref=f13e2]:
+    - complementary [ref=f13e3]:
+      - navigation [ref=f13e4]:
+        - link "Локации" [ref=f13e5] [cursor=pointer]:
+          - /url: /locations
+        - link "Подразделения" [ref=f13e6] [cursor=pointer]:
+          - /url: /departments
+        - link "Позиции" [ref=f13e7] [cursor=pointer]:
+          - /url: /positions
+        - link "Структура подразделений" [ref=f13e8] [cursor=pointer]:
+          - /url: /departments-workspace-page
+    - generic [ref=f13e9]:
+      - banner [ref=f13e10]:
+        - heading "Directory service" [level=1] [ref=f13e11]
+        - button "Открыть глобальный поиск" [ref=f13e12]:
+          - generic [ref=f13e13]: Найти в справочнике
+      - main [ref=f13e14]:
+        - generic [ref=f13e15]:
+          - generic [ref=f13e17]:
+            - generic [ref=f13e18]: Структура компании
+            - heading "Подразделения" [level=1] [ref=f13e24]
+            - paragraph [ref=f13e25]: Отделы и команды компании с их местом в общей структуре.
+          - generic [ref=f13e26]:
+            - paragraph [ref=f13e27]: Показывать подразделения
+            - group "Режим просмотра подразделений" [ref=f13e28]:
+              - button "Не в архиве" [pressed] [ref=f13e29]
+              - button "Архивные" [ref=f13e30]
+          - search [ref=f13e31]:
+            - generic [ref=f13e32]:
+              - generic [ref=f13e33]:
+                - generic [ref=f13e34]: Найти подразделение
+                - searchbox "Найти подразделение" [ref=f13e36]
+              - generic [ref=f13e37]:
+                - generic [ref=f13e38]: Локации
+                - combobox "Локации" [ref=f13e40]
+                - textbox [aria-hidden] [ref=f13e41]
+  - button "Open Next.js Dev Tools" [ref=f13e54] [cursor=pointer]
+  - alert [ref=f13e58]
+  - generic:
+    - region "Notifications"

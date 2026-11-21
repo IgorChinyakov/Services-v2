@@ -1,0 +1,78 @@
+- generic [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - complementary [aria-hidden] [ref=f1e3]:
+      - navigation [ref=f1e4]:
+        - link [ref=f1e559] [cursor=pointer]:
+          - /url: /locations
+          - text: Локации
+        - link [ref=f1e560] [cursor=pointer]:
+          - /url: /departments
+          - text: Подразделения
+        - link [ref=f1e561] [cursor=pointer]:
+          - /url: /positions
+          - text: Позиции
+    - generic [ref=f1e8]:
+      - banner [aria-hidden] [ref=f1e9]:
+        - heading [level=1] [ref=f1e562]: Directory service
+      - main [ref=f1e11]:
+        - generic [ref=f1e12]:
+          - generic [aria-hidden] [ref=f1e13]:
+            - generic [ref=f1e14]:
+              - generic [ref=f1e15]: Структура компании
+              - heading [level=1] [ref=f1e563]: Подразделения
+              - paragraph [ref=f1e22]: Отделы и команды компании с их местом в общей структуре.
+            - generic [ref=f1e600]: "Всего: 1"
+          - search [ref=f1e23]:
+            - generic [ref=f1e24]:
+              - generic [aria-hidden] [ref=f1e25]:
+                - generic [ref=f1e26]: Найти подразделение
+                - searchbox [ref=f1e564]
+              - generic [ref=f1e29]:
+                - generic [aria-hidden] [ref=f1e30]: Локации
+                - toolbar [ref=f1e601]:
+                  - generic [ref=f1e602]:
+                    - text: Demo London Hub 26
+                    - button [ref=f1e603]
+                  - button "Dismiss" [ref=f1e565]
+                  - combobox "Локации" [expanded] [active] [ref=f1e32]
+                  - button "Сбросить" [ref=f1e604]
+                - textbox [aria-hidden] [ref=f1e33]
+          - generic [ref=f1e606]:
+            - generic [ref=f1e614]:
+              - paragraph [ref=f1e615]: Подразделение
+              - generic [ref=f1e616]: Sales department
+            - generic [ref=f1e617]:
+              - generic [ref=f1e618]: sales
+              - generic [ref=f1e624]:
+                - paragraph [ref=f1e625]: Путь в структуре
+                - paragraph [ref=f1e626]: newheadquarters.sales
+            - generic [ref=f1e627]: Создано 11 июля 2026 г.
+  - button "Open Next.js Dev Tools" [ref=f1e46] [cursor=pointer]
+  - alert [ref=f1e50]
+  - generic:
+    - region "Notifications"
+  - generic:
+    - generic [ref=f1e575]:
+      - listbox [ref=f1e576]:
+        - option "Demo London Hub 26" [selected] [ref=f1e577]
+        - option "Demo Moscow Office 12" [ref=f1e578]
+        - option "Demo Moscow Office 24" [ref=f1e579]
+        - option "Demo Moscow Office 36" [ref=f1e580]
+        - option "Demo Novosibirsk Hub 11" [ref=f1e581]
+        - option "Demo Novosibirsk Hub 23" [ref=f1e582]
+        - option "Demo Samara Warehouse 13" [ref=f1e583]
+        - option "Demo Sochi Hub 17" [ref=f1e584]
+        - option "Demo Sochi Hub 29" [ref=f1e585]
+        - option "Demo Tokyo Office 09" [ref=f1e586]
+        - option "Demo Tokyo Office 21" [ref=f1e587]
+        - option "Demo Tokyo Office 33" [ref=f1e588]
+        - option "Demo Tula Office 27" [ref=f1e589]
+        - option "Demo Yekaterinburg Office 06" [ref=f1e590]
+        - option "Demo Yekaterinburg Office 18" [ref=f1e591]
+        - option "DS22 Location 001" [ref=f1e592]
+        - option "DS22 Location 002" [ref=f1e593]
+        - option "DS22 Location 003" [ref=f1e594]
+        - option "DS22 Location 004" [ref=f1e595]
+        - option "DS22 Location 005" [ref=f1e596]
+      - button "Показать ещё" [ref=f1e598]
+    - button "Dismiss" [ref=f1e599]
