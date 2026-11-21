@@ -1,7 +1,6 @@
 ﻿using System.Data.Common;
 using System.Globalization;
 using DirectoryService.Api;
-using DirectoryService.Application;
 using DirectoryService.Infrastructure.Database;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
@@ -36,12 +35,11 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         .Build();
 
     private readonly DepartmentUpdateCommandInterceptor _departmentUpdateCommandInterceptor = new();
-    private readonly TestCacheDiagnostics _cacheDiagnostics = new();
+    private readonly TestCacheScope _cacheScope = new();
 
     private Respawner? _respawner;
     private DbConnection? _dbConnection;
     private NpgsqlDataSource? _dataSource;
-    private HybridCache? _hybridCache;
 
     public async Task InitializeAsync()
     {
@@ -52,7 +50,6 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         await using var scope = Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<DirectoryServiceDbContext>();
         _dataSource = scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>();
-        _hybridCache = scope.ServiceProvider.GetRequiredService<HybridCache>();
 
         await context.Database.MigrateAsync();
 
@@ -66,11 +63,9 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
 
     public async Task ResetDatabaseAsync()
     {
-        if (_respawner is null || _dbConnection is null || _dataSource is null || _hybridCache is null)
+        if (_respawner is null || _dbConnection is null || _dataSource is null)
             throw new InvalidOperationException("Test database was not initialized.");
 
-        _cacheDiagnostics.BeginReset();
-        SnapshotCache("reset-before", _hybridCache);
         await _respawner.ResetAsync(_dbConnection);
         await EnsureLtreeExtensionAsync();
 
@@ -78,17 +73,10 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         if (flushResult.ExitCode != 0)
             throw new InvalidOperationException($"Failed to flush test Redis: {flushResult.Stderr}");
 
-        await _hybridCache.RemoveByTagAsync(
-            [CacheConstants.LOCATIONS_CACHE_TAG, CacheConstants.DEPARTMENTS_CACHE_TAG]);
-        SnapshotCache("reset-after", _hybridCache);
+        // Cleanup must not depend on the tag invalidation being tested. Old L1/L2
+        // entries, including delayed Redis writes, belong to a previous generation.
+        _cacheScope.Reset();
     }
-
-    internal void SetDiagnosticTest(string test) => _cacheDiagnostics.SetTest(test);
-
-    internal void SetDiagnosticRequest(string? request) => _cacheDiagnostics.SetRequest(request);
-
-    internal void SnapshotCache(string phase, HybridCache cache) =>
-        _cacheDiagnostics.Snapshot(phase, cache, _hybridCache);
 
     public async Task<long> GetRedisDatabaseSizeAsync()
     {
@@ -110,7 +98,6 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
             await _dbConnection.DisposeAsync();
 
         await base.DisposeAsync();
-        _cacheDiagnostics.Dispose();
         await _redisContainer.StopAsync();
         await _redisContainer.DisposeAsync();
         await _postgresContainer.StopAsync();
@@ -121,7 +108,6 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
     {
         builder.ConfigureTestServices(services =>
         {
-            services.AddSingleton<IStartupFilter>(new TestCacheDiagnosticsStartupFilter(this));
             services.RemoveAll<DirectoryServiceDbContext>();
             services.RemoveAll<DbContextOptions<DirectoryServiceDbContext>>();
             services.RemoveAll<DbContextOptions>();
@@ -150,6 +136,16 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
             {
                 options.Configuration =
                     $"{_redisContainer.Hostname}:{_redisContainer.GetMappedPublicPort(RedisPort)}";
+            });
+
+            var cacheRegistration = services.Single(service => service.ServiceType == typeof(HybridCache));
+            services.Remove(cacheRegistration);
+            services.AddSingleton<HybridCache>(provider =>
+            {
+                var inner = cacheRegistration.ImplementationInstance as HybridCache
+                    ?? cacheRegistration.ImplementationFactory?.Invoke(provider) as HybridCache
+                    ?? (HybridCache)ActivatorUtilities.CreateInstance(provider, cacheRegistration.ImplementationType!);
+                return new IsolatedHybridCache(inner, _cacheScope);
             });
         });
     }

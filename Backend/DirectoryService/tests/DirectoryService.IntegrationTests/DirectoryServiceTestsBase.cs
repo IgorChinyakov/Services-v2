@@ -27,7 +27,6 @@ public class DirectoryServiceTestsBase : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        _factory.SetDiagnosticTest(GetType().Name);
         await _resetDatabase();
     }
 

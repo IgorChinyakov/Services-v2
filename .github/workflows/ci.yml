@@ -34,8 +34,6 @@ jobs:
 
       - name: Run backend integration tests
         working-directory: Backend/DirectoryService
-        env:
-          DIRECTORY_CACHE_DIAGNOSTICS: ${{ github.workspace }}/Backend/DirectoryService/TestResults/cache-diagnostics.log
         run: >-
           dotnet test DirectoryService.sln
           --configuration Release
@@ -45,10 +43,14 @@ jobs:
           --results-directory TestResults
           --diag vstest.log
 
-      - name: Report cache diagnostics
-        if: always()
+      - name: Verify cache isolation again
         working-directory: Backend/DirectoryService
-        run: python3 scripts/report-cache-diagnostics.py
+        run: >-
+          dotnet test DirectoryService.sln
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=backend-repeat.trx"
+          --results-directory TestResults/Repeat
 
       - name: Upload test diagnostics
         if: always()
