@@ -31,3 +31,7 @@ jobs:
       - name: Build backend
         working-directory: Backend/DirectoryService
         run: dotnet build DirectoryService.sln --configuration Release --no-restore
+
+      - name: Run backend integration tests
+        working-directory: Backend/DirectoryService
+        run: dotnet test DirectoryService.sln --configuration Release --no-build
