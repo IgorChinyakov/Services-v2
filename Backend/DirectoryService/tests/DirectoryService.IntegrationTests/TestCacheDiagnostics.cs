@@ -3,6 +3,10 @@ using System.Diagnostics.Tracing;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using DirectoryService.Application.Abstractions.Cache;
+using DirectoryService.Application.Abstractions.Handlers;
+using DirectoryService.Application.Features.Departments.GetTree;
+using DirectoryService.Contracts.Departments;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Caching.Hybrid;
@@ -152,6 +156,20 @@ internal sealed class TestCacheDiagnosticsStartupFilter(DirectoryServiceWebFacto
             var cache = context.RequestServices.GetRequiredService<HybridCache>();
             factory.SetDiagnosticRequest($"{context.Request.Method} {context.Request.Path}{context.Request.QueryString}");
             factory.SnapshotCache("request-before", cache);
+            var invalidator = context.RequestServices.GetRequiredService<ICacheInvalidator>();
+            var invalidatorCache = invalidator.GetType().GetField("_hybridCache", BindingFlags.Instance | BindingFlags.NonPublic)
+                ?.GetValue(invalidator) as HybridCache;
+            if (invalidatorCache is not null)
+                factory.SnapshotCache("invalidator-cache", invalidatorCache);
+            if (context.Request.Path == "/api/departments/tree")
+            {
+                var handler = context.RequestServices.GetRequiredService<
+                    IQueryHandler<GetDepartmentTreeQuery, IReadOnlyList<DepartmentTreeNodeDto>>>();
+                var handlerCache = handler.GetType().GetField("_hybridCache", BindingFlags.Instance | BindingFlags.NonPublic)
+                    ?.GetValue(handler) as HybridCache;
+                if (handlerCache is not null)
+                    factory.SnapshotCache("tree-handler-cache", handlerCache);
+            }
             try
             {
                 await continuation();
