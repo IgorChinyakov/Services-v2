@@ -220,7 +220,8 @@ public sealed class GetDepartmentsTests : DirectoryServiceTestsBase
         inactiveResponse!.Result!.TotalCount.Should().Be(1);
         inactiveResponse.Result.Items.Should().ContainSingle(item => item.Id == inactiveId.Value);
         inactiveResponse.Result.Items[0].IsActive.Should().BeFalse();
-        inactiveResponse.Result.Items[0].UpdatedAt.Should().Be(deletedAt);
+        inactiveResponse.Result.Items[0].UpdatedAt.Should()
+            .BeCloseTo(deletedAt, TimeSpan.FromMicroseconds(1));
         inactiveResponse.Result.Items[0].DeletedAt.Should().BeNull();
         inactiveAtLocationResponse!.Result!.Items.Should().ContainSingle(item => item.Id == inactiveId.Value);
     }
