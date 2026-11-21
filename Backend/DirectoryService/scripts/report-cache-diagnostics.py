@@ -51,17 +51,24 @@ if trace.exists() and report.exists():
         ticks = int((end - datetime(1, 1, 1, tzinfo=timezone.utc)).total_seconds() * 10000000)
         candidates = [row for row in records if row.get("test") == test
                       and row.get("utcTicks", 0) <= ticks + 10000]
-        generation = max((row.get("generation", 0) for row in candidates), default=0)
-        relevant = [row for row in candidates if row.get("generation", 0) >= generation - 1]
+        generation = max((row.get("generation", 0) for row in candidates
+                          if row.get("phase") == "request-after"), default=0)
+        relevant = [row for row in candidates if generation <= row.get("generation", 0) <= generation + 1]
+        identities = {
+            phase: sorted({row["cacheId"] for row in records
+                           if row.get("test") == test and row.get("phase") == phase
+                           and row.get("cacheId") is not None})
+            for phase in ("reset-after", "request-before", "tree-handler-cache", "invalidator-cache")
+        }
         metadata = [public_metadata(row) for row in relevant if row.get("phase") != "cache-event"]
         events = [row.get("name") for row in relevant if row.get("phase") == "cache-event"]
         # GitHub truncates each annotation at 4096 characters.
-        summaries = {"snapshots": metadata, "events": events}
+        summaries = {"identities": identities, "snapshots": metadata, "events": events}
         text = json.dumps(summaries, separators=(",", ":"))
         if len(text) > 3900:
             metadata = [{k: v for k, v in row.items() if k not in {"utcTicks", "cacheTicks", "localCount"}}
                         for row in metadata]
-            text = json.dumps({"snapshots": metadata, "events": events}, separators=(",", ":"))
+            text = json.dumps({"identities": identities, "snapshots": metadata, "events": events}, separators=(",", ":"))
         text = text[:3900]
         escaped = text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
         print(f"::notice title=Cache diagnostics {test} generation {generation}::{escaped}")
