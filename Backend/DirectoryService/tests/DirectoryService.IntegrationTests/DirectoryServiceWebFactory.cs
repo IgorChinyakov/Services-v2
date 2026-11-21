@@ -36,6 +36,7 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         .Build();
 
     private readonly DepartmentUpdateCommandInterceptor _departmentUpdateCommandInterceptor = new();
+    private readonly TestCacheDiagnostics _cacheDiagnostics = new();
 
     private Respawner? _respawner;
     private DbConnection? _dbConnection;
@@ -68,6 +69,8 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         if (_respawner is null || _dbConnection is null || _dataSource is null || _hybridCache is null)
             throw new InvalidOperationException("Test database was not initialized.");
 
+        _cacheDiagnostics.BeginReset();
+        SnapshotCache("reset-before", _hybridCache);
         await _respawner.ResetAsync(_dbConnection);
         await EnsureLtreeExtensionAsync();
 
@@ -77,7 +80,15 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
 
         await _hybridCache.RemoveByTagAsync(
             [CacheConstants.LOCATIONS_CACHE_TAG, CacheConstants.DEPARTMENTS_CACHE_TAG]);
+        SnapshotCache("reset-after", _hybridCache);
     }
+
+    internal void SetDiagnosticTest(string test) => _cacheDiagnostics.SetTest(test);
+
+    internal void SetDiagnosticRequest(string? request) => _cacheDiagnostics.SetRequest(request);
+
+    internal void SnapshotCache(string phase, HybridCache cache) =>
+        _cacheDiagnostics.Snapshot(phase, cache, _hybridCache);
 
     public async Task<long> GetRedisDatabaseSizeAsync()
     {
@@ -99,6 +110,7 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
             await _dbConnection.DisposeAsync();
 
         await base.DisposeAsync();
+        _cacheDiagnostics.Dispose();
         await _redisContainer.StopAsync();
         await _redisContainer.DisposeAsync();
         await _postgresContainer.StopAsync();
@@ -109,6 +121,7 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
     {
         builder.ConfigureTestServices(services =>
         {
+            services.AddSingleton<IStartupFilter>(new TestCacheDiagnosticsStartupFilter(this));
             services.RemoveAll<DirectoryServiceDbContext>();
             services.RemoveAll<DbContextOptions<DirectoryServiceDbContext>>();
             services.RemoveAll<DbContextOptions>();
