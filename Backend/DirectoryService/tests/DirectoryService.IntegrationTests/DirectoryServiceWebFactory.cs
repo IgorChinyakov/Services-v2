@@ -1,7 +1,6 @@
 ﻿using System.Data.Common;
 using System.Globalization;
 using DirectoryService.Api;
-using DirectoryService.Application;
 using DirectoryService.Infrastructure.Database;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
@@ -24,7 +23,7 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
 {
     private const int RedisPort = 6379;
 
-    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder("postgres")
+    private readonly PostgreSqlContainer _postgresContainer = new PostgreSqlBuilder("postgres:16")
         .WithDatabase("directory_testing_db")
         .WithUsername("postgres")
         .WithPassword("postgres")
@@ -36,11 +35,11 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         .Build();
 
     private readonly DepartmentUpdateCommandInterceptor _departmentUpdateCommandInterceptor = new();
+    private readonly TestCacheScope _cacheScope = new();
 
     private Respawner? _respawner;
     private DbConnection? _dbConnection;
     private NpgsqlDataSource? _dataSource;
-    private HybridCache? _hybridCache;
 
     public async Task InitializeAsync()
     {
@@ -51,7 +50,6 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         await using var scope = Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetRequiredService<DirectoryServiceDbContext>();
         _dataSource = scope.ServiceProvider.GetRequiredService<NpgsqlDataSource>();
-        _hybridCache = scope.ServiceProvider.GetRequiredService<HybridCache>();
 
         await context.Database.MigrateAsync();
 
@@ -65,7 +63,7 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
 
     public async Task ResetDatabaseAsync()
     {
-        if (_respawner is null || _dbConnection is null || _dataSource is null || _hybridCache is null)
+        if (_respawner is null || _dbConnection is null || _dataSource is null)
             throw new InvalidOperationException("Test database was not initialized.");
 
         await _respawner.ResetAsync(_dbConnection);
@@ -75,8 +73,9 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
         if (flushResult.ExitCode != 0)
             throw new InvalidOperationException($"Failed to flush test Redis: {flushResult.Stderr}");
 
-        await _hybridCache.RemoveByTagAsync(
-            [CacheConstants.LOCATIONS_CACHE_TAG, CacheConstants.DEPARTMENTS_CACHE_TAG]);
+        // Cleanup must not depend on the tag invalidation being tested. Old L1/L2
+        // entries, including delayed Redis writes, belong to a previous generation.
+        _cacheScope.Reset();
     }
 
     public async Task<long> GetRedisDatabaseSizeAsync()
@@ -137,6 +136,16 @@ public class DirectoryServiceWebFactory : WebApplicationFactory<Program>, IAsync
             {
                 options.Configuration =
                     $"{_redisContainer.Hostname}:{_redisContainer.GetMappedPublicPort(RedisPort)}";
+            });
+
+            var cacheRegistration = services.Single(service => service.ServiceType == typeof(HybridCache));
+            services.Remove(cacheRegistration);
+            services.AddSingleton<HybridCache>(provider =>
+            {
+                var inner = cacheRegistration.ImplementationInstance as HybridCache
+                    ?? cacheRegistration.ImplementationFactory?.Invoke(provider) as HybridCache
+                    ?? (HybridCache)ActivatorUtilities.CreateInstance(provider, cacheRegistration.ImplementationType!);
+                return new IsolatedHybridCache(inner, _cacheScope);
             });
         });
     }
