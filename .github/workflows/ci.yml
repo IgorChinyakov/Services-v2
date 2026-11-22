@@ -83,5 +83,7 @@ jobs:
         run: npm run lint
 
       - name: Build frontend
+        env:
+          NEXT_PUBLIC_API_URL: /api/
         working-directory: Frontend/directory-service
         run: npm run build
