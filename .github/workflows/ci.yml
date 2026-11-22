@@ -54,3 +54,34 @@ jobs:
           path: |
             Backend/DirectoryService/TestResults/
             Backend/DirectoryService/vstest*.log
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Get repository code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Show Node.js and npm versions
+        run: |
+          node --version
+          npm --version
+
+      - name: Install frontend dependencies
+        working-directory: Frontend/directory-service
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: Frontend/directory-service
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: Frontend/directory-service
+        run: npm run build
