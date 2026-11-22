@@ -1,0 +1,117 @@
+name: directory-deploy
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.4-alpine}
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  seq:
+    image: ${SEQ_IMAGE:-datalust/seq:latest}
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_PASSWORD: ${SEQ_PASSWORD:?Set SEQ_PASSWORD in .env}
+    volumes:
+      - seq_data:/data
+
+  backend:
+    image: ghcr.io/igorchinyakov/directory-backend:${IMAGE_TAG:?Set IMAGE_TAG to latest or sha-<full-commit> in .env}
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      Database__ApplyMigrationsAtStartup: "true"
+      Postgres__ConnectionString: >-
+        Host=postgres;
+        Port=5432;
+        Database=${POSTGRES_DB:?Set POSTGRES_DB in .env};
+        Username=${POSTGRES_USER:?Set POSTGRES_USER in .env};
+        Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      Redis__Enabled: "true"
+      Redis__ConnectionString: redis:6379
+      Seq__ServerUrl: http://seq:5341
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seq:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 30s
+
+  frontend:
+    image: ghcr.io/igorchinyakov/directory-frontend:${IMAGE_TAG:?Set IMAGE_TAG to latest or sha-<full-commit> in .env}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  nginx:
+    image: ${NGINX_IMAGE:-nginx:1.30.7-alpine}
+    restart: unless-stopped
+    ports:
+      - "${HTTP_BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-8080}:80"
+    volumes:
+      - type: bind
+        source: ./nginx.conf
+        target: /etc/nginx/conf.d/default.conf
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+  seq_data:

@@ -150,6 +150,9 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    concurrency:
+      group: directory-service-publish-manifests
+      cancel-in-progress: false
     permissions:
       packages: write
 
@@ -173,4 +176,14 @@ jobs:
               "$image:sha-$GITHUB_SHA-amd64" \
               "$image:sha-$GITHUB_SHA-arm64"
             docker buildx imagetools inspect "$image:sha-$GITHUB_SHA"
+          done
+
+      - name: Publish latest tags
+        run: |
+          for service in backend frontend; do
+            image="ghcr.io/igorchinyakov/directory-$service"
+            docker buildx imagetools create \
+              --tag "$image:latest" \
+              "$image:sha-$GITHUB_SHA"
+            docker buildx imagetools inspect "$image:latest"
           done
