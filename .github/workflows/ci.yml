@@ -87,3 +87,21 @@ jobs:
           NEXT_PUBLIC_API_URL: /api/
         working-directory: Frontend/directory-service
         run: npm run build
+
+  publish:
+    name: Publish Docker images
+    needs: [backend, frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Get repository code
+        uses: actions/checkout@v6
+
+      - name: Check publication conditions
+        run: echo "CI passed. Ready to publish Docker images."
