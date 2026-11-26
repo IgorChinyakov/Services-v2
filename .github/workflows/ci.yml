@@ -188,12 +188,16 @@ jobs:
             docker buildx imagetools inspect "$image:latest"
           done
 
-  check-deploy-connection:
-    name: Check VM connection
+  deploy:
+    name: Deploy to VM
     needs: publish-manifests
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
+
+    concurrency:
+      group: directory-service-deploy
+      cancel-in-progress: false
 
     permissions:
       id-token: write
@@ -210,7 +214,7 @@ jobs:
       - name: Check SSH port
         run: nc -vz -w 10 100.97.20.76 22
 
-      - name: Verify SSH login
+      - name: Deploy application
         shell: bash
         env:
           SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
@@ -231,4 +235,4 @@ jobs:
             -o UserKnownHostsFile="$ssh_dir/known_hosts" \
             -o ConnectTimeout=15 \
             deploy@100.97.20.76 \
-            whoami
+            'sudo -n /usr/local/sbin/deploy-directory-service'
